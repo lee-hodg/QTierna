@@ -57,7 +57,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.actionAdd_Reminder.triggered.connect(self.add_button_clicked)
         # self.actionRemove_Reminder.triggered.connect(self.remove_button_clicked)
 
-        self.workerthread = WorkerThread()
+        # self.workerthread = WorkerThread()
 
         # With DirectConnection: this error
         # https://stackoverflow.com/questions/17946539/pyqt-threading-error-while-passing-a-signal-to-a-qmessagebox
@@ -67,9 +67,21 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         # Works
         # self.connect(self.workerthread, SIGNAL("reminderDue()"), self.launch_reminder)
 
-        self.workerthread.reminderisdue.connect(self.launch_reminder)
+        # self.workerthread.reminderisdue.connect(self.launch_reminder)
 
-        self.workerthread.start()
+        # self.workerthread.start()
+
+        # I'm doing it with moveToThread in this manner, rather than
+        # just making the Worker class inherit from QThread
+        # as apparently this is best practice now: https://mayaposch.wordpress.com/2011/11/01/how-to-really-truly-use-qthreads-the-full-explanation/
+        # Alternatively put this in the if __main__ section with minor alts
+        self.workerThread = QThread()
+        self.worker = Worker()
+        self.worker.moveToThread(self.workerThread)
+        self.workerThread.started.connect(self.worker.check_reminders_loop)
+        self.worker.reminderisdue.connect(self.launch_reminder)
+        self.workerThread.start()
+
         # self.actionExport_Data.triggered.connect(self.export_action_triggered)
         # self.actionImport_Data.triggered.connect(self.import_action_triggered)
         # self.actionPreferences.triggered.connect(self.preferences_action_triggered)
@@ -119,9 +131,9 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             # self.dbCursor.execute('''INSERT INTO Main VALUES (?, ?, ?, ?, ?, ?)''', parameters)
             # self.dbConn.commit()
 
-    @Slot()
-    def launch_reminder(self):
-        QMessageBox.information(self, "Alert", "Remember to X")
+    @Slot(str, str, str)
+    def launch_reminder(self, category, when, message):
+        QMessageBox.information(self, "%s: %s" % (category, when), message)
 
     # def remove_button_clicked(self):
     #     """Removes the selected row from the mainTable"""
@@ -208,20 +220,19 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
     #         event.ignore()
 
 
-class WorkerThread(QThread):
+class Worker(QObject):
+    reminderisdue = Signal(str, str, str)
 
-    reminderisdue = Signal()
+    @Slot()
+    def check_reminders_loop(self):
+        # This timer just repeats every <interval> ms
+        interval = 2000
+        timer = QTimer(self)
+        timer.timeout.connect(self.query_db)
+        timer.start(interval)
 
-    def __init__(self, parent=None):
-        super(WorkerThread, self).__init__(parent)
-
-    def run(self):
-        import time
-        while True:
-            time.sleep(10)
-            # Every object inheriting from QObject has emit() method (inc QThread)
-            # self.emit(SIGNAL("reminderDue()"))
-            self.reminderisdue.emit()
+    def query_db(self):
+        self.reminderisdue.emit('Bills', '12:41', 'Pay your telephone!')
 
 
 def main():
