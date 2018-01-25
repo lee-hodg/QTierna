@@ -1,0 +1,15 @@
+<RCC>
+  <qresource prefix="icons">
+    <file>icons/edit_white.png</file>
+    <file>icons/settings_white.png</file>
+    <file>icons/alarm-clock.png</file>
+    <file>icons/circle-add_white.png</file>
+    <file>icons/trash_white.png</file>
+    <file>icons/export_white.png</file>
+    <file>icons/import_white.png</file>
+    <file>icons/import.png</file>
+    <file>icons/export.png</file>
+    <file>icons/circle-add.png</file>
+    <file>icons/trash.png</file>
+  </qresource>
+</RCC>
