@@ -5,6 +5,7 @@ __module__ = "main"
 from PySide.QtCore import *
 from PySide.QtGui import *
 import sys
+import hashlib
 # import re
 import sqlite3
 import os
@@ -48,28 +49,18 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.setupUi(self)
 
         self.dbCursor = self.dbConn.cursor()
-        self.dbCursor.execute("""CREATE TABLE IF NOT EXISTS Reminders(id INTEGER PRIMARY KEY,
-                                 datetime TEXT, note TEXT, category TEXT)""")
+        self.dbCursor.execute("""CREATE TABLE IF NOT EXISTS reminderstable(id INTEGER PRIMARY KEY,
+                                 unique_hash TEXT,
+                                 due TEXT, category TEXT, reminder TEXT);
+                              """)
+
+        self.dbCursor.execute("""CREATE INDEX IF NOT EXISTS unique_hash_idx ON reminderstable (unique_hash);""")
         self.dbConn.commit()
 
         self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "QTierna", "QTierna")
 
         self.actionAdd_Reminder.triggered.connect(self.add_button_clicked)
-        # self.actionRemove_Reminder.triggered.connect(self.remove_button_clicked)
-
-        # self.workerthread = WorkerThread()
-
-        # With DirectConnection: this error
-        # https://stackoverflow.com/questions/17946539/pyqt-threading-error-while-passing-a-signal-to-a-qmessagebox
-        # self.connect(self.workerthread, SIGNAL("reminderDue()"), self.launch_reminder
-        #              Qt.DirectConnection)
-
-        # Works
-        # self.connect(self.workerthread, SIGNAL("reminderDue()"), self.launch_reminder)
-
-        # self.workerthread.reminderisdue.connect(self.launch_reminder)
-
-        # self.workerthread.start()
+        self.actionRemove_Reminder.triggered.connect(self.remove_button_clicked)
 
         # I'm doing it with moveToThread in this manner, rather than
         # just making the Worker class inherit from QThread
@@ -90,21 +81,18 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         # self.showToolbar = utilities.str2bool(self.settings.value("showToolbar", True))
         # self.mainToolBar.setVisible(self.showToolbar)
 
-        # self.load_initial_settings()
+        self.load_initial_settings()
 
-    # def load_initial_settings(self):
-    #     """Loads the initial settings for the application. Sets the mainTable column widths,"""
-    #     self.dbCursor.execute("""SELECT * FROM Main""")
-    #     allRows = self.dbCursor.fetchall()
+    def load_initial_settings(self):
+        """Loads the initial settings for the application. Sets the mainTable column widths,"""
+        self.dbCursor.execute("""SELECT due, category, reminder FROM reminderstable""")
+        allRows = self.dbCursor.fetchall()
 
-    #     for row in allRows:
-    #         inx = allRows.index(row)
-    #         self.mainTable.insertRow(inx)
-    #         self.mainTable.setItem(inx, 0, QTableWidgetItem(row[1]))
-    #         self.mainTable.setItem(inx, 1, QTableWidgetItem(row[2]))
-    #         self.mainTable.setItem(inx, 2, QTableWidgetItem(row[3]))
-    #         self.mainTable.setItem(inx, 3, QTableWidgetItem(row[4]))
-    #         self.mainTable.setItem(inx, 4, QTableWidgetItem(row[5]))
+        for inx, row in enumerate(allRows):
+            self.mainTableWidget.insertRow(inx)
+            self.mainTableWidget.setItem(inx, 0, QTableWidgetItem(row[0]))
+            self.mainTableWidget.setItem(inx, 1, QTableWidgetItem(row[1]))
+            self.mainTableWidget.setItem(inx, 2, QTableWidgetItem(row[2]))
 
     def add_button_clicked(self):
         """Opens the add reminder dialog"""
@@ -113,9 +101,9 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             # User Saved
             date_ = dialog.calendarWidget.selectedDate().toString("yyyy.MM.dd")
             time_ = dialog.timeEdit.time().toString('HH:mm')
-            datetime = ' '.join([date_, time_])
+            due = ' '.join([date_, time_])
             category = 'default'
-            note = dialog.textEdit.toPlainText()
+            reminder = dialog.textEdit.toPlainText()
 
             # if not self.validate_fields():
             #     return False
@@ -123,26 +111,50 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             currentRowCount = self.mainTableWidget.rowCount()
 
             self.mainTableWidget.insertRow(currentRowCount)
-            self.mainTableWidget.setItem(currentRowCount, 0, QTableWidgetItem(datetime))
+            self.mainTableWidget.setItem(currentRowCount, 0, QTableWidgetItem(due))
             self.mainTableWidget.setItem(currentRowCount, 1, QTableWidgetItem(category))
-            self.mainTableWidget.setItem(currentRowCount, 2, QTableWidgetItem(note))
+            self.mainTableWidget.setItem(currentRowCount, 2, QTableWidgetItem(reminder))
 
-            # parameters = (None, username, first_name, phone, address, str(approved))
-            # self.dbCursor.execute('''INSERT INTO Main VALUES (?, ?, ?, ?, ?, ?)''', parameters)
-            # self.dbConn.commit()
+            unique_hash = self._get_unique_hash(*(due, category, reminder))
+            parameters = (None, unique_hash, due, category, reminder)
+            self.dbCursor.execute('''INSERT INTO reminderstable VALUES (?, ?, ?, ?, ?)''', parameters)
+            self.dbConn.commit()
 
     @Slot(str, str, str)
     def launch_reminder(self, category, when, message):
         QMessageBox.information(self, "%s: %s" % (category, when), message)
 
-    # def remove_button_clicked(self):
-    #     """Removes the selected row from the mainTable"""
-        # currentRow = self.mainTable.currentRow()
-# if currentRow > -1:
-        #     currentUsername = (self.mainTable.item(currentRow, 0).text(), )
-        #     self.dbCursor.execute("""DELETE FROM Main WHERE username=?""", currentUsername)
-        #     self.dbConn.commit()
-        #     self.mainTable.removeRow(currentRow)
+    def _get_unique_hash(self, *args):
+        '''
+        Use hash of the date str, category, note
+        of row to index it rather than where and and and thing
+        which would be inefficient
+        '''
+        m = hashlib.md5()
+        for arg in args:
+            m.update(arg.encode('utf8'))
+        return m.hexdigest()
+
+    def remove_button_clicked(self):
+        """Removes the selected row from the mainTable"""
+        # currentRow = self.mainTableWidget.currentRow()
+        indices = self.mainTableWidget.selectionModel().selectedRows()
+        selected_rows = [index.row() for index in indices]
+        if selected_rows:
+            # sorted is important so we delete last in last first
+            # and don't mess up the indexing
+            for row in sorted(selected_rows, reverse=True):
+                params = (self.mainTableWidget.item(row, 0).text(),
+                          self.mainTableWidget.item(row, 1).text(),
+                          self.mainTableWidget.item(row, 2).text())
+                unique_hash = self._get_unique_hash(*(params))
+                # print('Deleting hash %s for params %s' % (unique_hash, params))
+                self.dbCursor.execute("""DELETE FROM reminderstable WHERE unique_hash=?""",
+                                      (unique_hash, ))
+                self.dbConn.commit()
+                self.mainTableWidget.removeRow(row)
+        else:
+            QMessageBox.warning('You must select a row for removal!')
 
     # def validate_fields(self):
     #     """Validates the QLineEdits based on RegEx"""
@@ -226,7 +238,7 @@ class Worker(QObject):
     @Slot()
     def check_reminders_loop(self):
         # This timer just repeats every <interval> ms
-        interval = 2000
+        interval = 20000
         timer = QTimer(self)
         timer.timeout.connect(self.query_db)
         timer.start(interval)
