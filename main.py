@@ -50,7 +50,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
         self.dbCursor = self.dbConn.cursor()
         self.dbCursor.execute("""CREATE TABLE IF NOT EXISTS reminderstable(id INTEGER PRIMARY KEY,
-                                 unique_hash TEXT,
+                                 unique_hash TEXT, notified INT,
                                  due TEXT, category TEXT, reminder TEXT);
                               """)
 
@@ -85,22 +85,30 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
     def load_initial_settings(self):
         """Loads the initial settings for the application. Sets the mainTable column widths,"""
-        self.dbCursor.execute("""SELECT due, category, reminder FROM reminderstable""")
+        self.dbCursor.execute("""SELECT notified, due, category, reminder FROM reminderstable""")
         allRows = self.dbCursor.fetchall()
 
+        allRows = sorted(allRows, key=lambda x: x[0], reverse=True)
         for inx, row in enumerate(allRows):
             self.mainTableWidget.insertRow(inx)
-            self.mainTableWidget.setItem(inx, 0, QTableWidgetItem(row[0]))
-            self.mainTableWidget.setItem(inx, 1, QTableWidgetItem(row[1]))
-            self.mainTableWidget.setItem(inx, 2, QTableWidgetItem(row[2]))
+            # self.mainTableWidget.setItem(inx, 0, QTableWidgetItem(row[0]).setBackground(QColor(255, 0, 0, 127)))
+            self.mainTableWidget.setItem(inx, 0, QTableWidgetItem(row[1]))
+            self.mainTableWidget.setItem(inx, 1, QTableWidgetItem(row[2]))
+            self.mainTableWidget.setItem(inx, 2, QTableWidgetItem(row[3]))
+
+            if row[0] == 1:
+                # Already notified
+                for j in range(self.mainTableWidget.columnCount()):
+                    self.mainTableWidget.item(inx, j).setBackground(QColor(255, 0, 0, 127))
 
     def add_button_clicked(self):
         """Opens the add reminder dialog"""
         dialog = AddDialog()
         if dialog.exec_():
             # User Saved
-            date_ = dialog.calendarWidget.selectedDate().toString("yyyy.MM.dd")
+            date_ = dialog.calendarWidget.selectedDate().toString("yyyy-MM-dd")
             time_ = dialog.timeEdit.time().toString('HH:mm')
+            # YYYY-MM-DD HH:MM
             due = ' '.join([date_, time_])
             category = 'default'
             reminder = dialog.textEdit.toPlainText()
@@ -116,12 +124,18 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             self.mainTableWidget.setItem(currentRowCount, 2, QTableWidgetItem(reminder))
 
             unique_hash = self._get_unique_hash(*(due, category, reminder))
-            parameters = (None, unique_hash, due, category, reminder)
-            self.dbCursor.execute('''INSERT INTO reminderstable VALUES (?, ?, ?, ?, ?)''', parameters)
+            notified = 0
+            parameters = (None, unique_hash, notified, due, category, reminder)
+            self.dbCursor.execute('''INSERT INTO reminderstable VALUES (?, ?, ?, ?, ?, ?)''', parameters)
             self.dbConn.commit()
 
-    @Slot(str, str, str)
-    def launch_reminder(self, category, when, message):
+    @Slot(str, str, str, str)
+    def launch_reminder(self, unique_hash, when, category, message):
+        # QApplication.instance().beep()
+        if QSound.isAvailable():
+            # Seems I would have to recompile with NAS support, but
+            # what does that mean for python when pyside was pip installed??
+            QSound.play("media/alarm_beep.wav")
         QMessageBox.information(self, "%s: %s" % (category, when), message)
 
     def _get_unique_hash(self, *args):
@@ -154,7 +168,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
                 self.dbConn.commit()
                 self.mainTableWidget.removeRow(row)
         else:
-            QMessageBox.warning('You must select a row for removal!')
+            QMessageBox.warning(None, 'Select rows', 'You must select a row for removal!')
 
     # def validate_fields(self):
     #     """Validates the QLineEdits based on RegEx"""
@@ -221,30 +235,47 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
     #     """This guy closes the application"""
     #     self.close()
 
-    # def closeEvent(self, event, *args, **kwargs):
-    #     """Overrides the default close method"""
+    def closeEvent(self, event, *args, **kwargs):
+        """Overrides the default close method"""
 
-    #     result = QMessageBox.question(self, __appname__, "Are you sure you want to exit?", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        result = QMessageBox.question(self, __appname__, "Are you sure you want to exit?", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
 
-    #     if result == QMessageBox.Yes:
-    #         event.accept()
-    #     else:
-    #         event.ignore()
+        if result == QMessageBox.Yes:
+            event.accept()
+        else:
+            event.ignore()
 
 
 class Worker(QObject):
-    reminderisdue = Signal(str, str, str)
+    reminderisdue = Signal(str, str, str, str)
 
     @Slot()
     def check_reminders_loop(self):
+        dbPath = os.path.join(appDataPath, "reminders.db")
+        self.dbConn = sqlite3.connect(dbPath)
+        self.dbCursor = self.dbConn.cursor()
         # This timer just repeats every <interval> ms
-        interval = 20000
+        interval = 5000
         timer = QTimer(self)
         timer.timeout.connect(self.query_db)
         timer.start(interval)
 
     def query_db(self):
-        self.reminderisdue.emit('Bills', '12:41', 'Pay your telephone!')
+        self.dbCursor.execute("SELECT unique_hash, datetime(due), category, reminder FROM"
+                              " reminderstable where datetime(due) <= DATETIME('now', 'localtime')"
+                              " AND notified = 0")
+        allRows = self.dbCursor.fetchall()
+
+        for row in allRows:
+            import time
+            time.sleep(3)
+            print(row)
+            self.reminderisdue.emit(*row)
+            # Set notified = 1
+            unique_hash = row[0]
+            self.dbCursor.execute("UPDATE reminderstable SET notified = 1 WHERE unique_hash = ?",
+                                  (unique_hash, ))
+            self.dbConn.commit()
 
 
 def main():
