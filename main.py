@@ -10,7 +10,7 @@ import hashlib
 import sqlite3
 import os
 import logging
-# import csv
+import csv
 
 from ui_files import mainWindow, addDialog
 
@@ -96,8 +96,8 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.show()
 
-        # self.actionExport_Data.triggered.connect(self.export_action_triggered)
-        # self.actionImport_Data.triggered.connect(self.import_action_triggered)
+        self.actionExport_Data.triggered.connect(self.export_action_triggered)
+        self.actionImport_Data.triggered.connect(self.import_action_triggered)
         # self.actionPreferences.triggered.connect(self.preferences_action_triggered)
         # self.actionExit.triggered.connect(self.exit_action_triggered)
 
@@ -159,6 +159,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             # Seems I would have to recompile with NAS support, but
             # what does that mean for python when pyside was pip installed??
             QSound.play("media/alarm_beep.wav")
+        self.show()
         QMessageBox.information(self, "%s: %s" % (category, when), message)
 
     def _get_unique_hash(self, *args):
@@ -208,34 +209,55 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
     #     return True
 
-    # def import_action_triggered(self):
-    #     """Database import handler"""
-    #     #THIS IS HOMEWORK! Hint #1 - Read the python doc csv.reader ; Hint #2 - There's nothing new here.
-    #     pass
+    def import_action_triggered(self):
+        '''Import csv to db'''
 
-    # def export_action_triggered(self):
-    #     """Database export handler"""
+        dbFile = QFileDialog.getOpenFileName(parent=None,
+                                             caption="Import database to a file",
+                                             directory=".", filter="QTierna CSV (*.csv)")
 
-    #     self.dbCursor.execute("SELECT * FROM Main")
+        if dbFile[0]:
+            try:
+                with open(dbFile[0], "rb") as csvFile:
+                    csvReader = csv.reader(csvFile, delimiter=',', quotechar="\"", quoting=csv.QUOTE_MINIMAL)
+                    # for row in csvReader:
+                    #     self.dbCursor.execute('IF NOT EXISTS (SELECT * FROM reminderstable WHERE ID = @SomeID)'
+                    #                               INSERT INTO dbo.Employee(Col1, ..., ColN)
+                    #                               VALUES(Val1, .., ValN)
 
-    #     dbFile = QFileDialog.getSaveFileName(parent=None, caption="Export database to a file", directory=".", filter="QTierna CSV (*.csv)")
+                    msg = ("Successfully imported %i rows from file\r\n%s"
+                           % (rowCount, (QDir.toNativeSeparators(dbFile[0]))))
+                    QMessageBox.information(self, __appname__, msg)
+            except Exception as xportexc:
+                QMessageBox.critical(self, __appname__, "Error exporting file, error is\r\n" + str(xportexc))
+                return
 
-    #     if dbFile[0]:
-    #         try:
-    #             with open(dbFile[0], "wb") as csvFile:
-    #                 csvWriter = csv.writer(csvFile, delimiter=',', quotechar="\"", quoting=csv.QUOTE_MINIMAL)
+    def export_action_triggered(self):
+        """Database export handler"""
 
-    #                 rows = self.dbCursor.fetchall()
-    #                 rowCount = len(rows)
+        self.dbCursor.execute("SELECT * FROM reminderstable")
 
-    #                 for row in rows:
-    #                     csvWriter.writerow(row)
+        dbFile = QFileDialog.getSaveFileName(parent=None,
+                                             caption="Export database to a file",
+                                             directory=".", filter="QTierna CSV (*.csv)")
 
-    #                 QMessageBox.information(self, __appname__, "Successfully exported " + str(rowCount) + " rows to a file\r\n" + str(QDir.toNativeSeparators(dbFile[0])))
+        if dbFile[0]:
+            try:
+                with open(dbFile[0], "wb") as csvFile:
+                    csvWriter = csv.writer(csvFile, delimiter=',', quotechar="\"", quoting=csv.QUOTE_MINIMAL)
 
-    #         except Exception, e:
-    #             QMessageBox.critical(self, __appname__, "Error exporting file, error is\r\n" + str(e))
-    #             return
+                    rows = self.dbCursor.fetchall()
+                    rowCount = len(rows)
+
+                    for row in rows:
+                        csvWriter.writerow(row)
+
+                    msg = ("Successfully exported %i rows to a file\r\n%s"
+                           % (rowCount, (QDir.toNativeSeparators(dbFile[0]))))
+                    QMessageBox.information(self, __appname__, msg)
+            except Exception as xportexc:
+                QMessageBox.critical(self, __appname__, "Error exporting file, error is\r\n" + str(xportexc))
+                return
 
     # def preferences_action_triggered(self):
     #     """Fires up the Preferences dialog"""
@@ -296,21 +318,28 @@ class Worker(QObject):
         timer.start(interval)
 
     def query_db(self):
+        print('query db')
         self.dbCursor.execute("SELECT unique_hash, datetime(due), category, reminder FROM"
                               " reminderstable where datetime(due) <= DATETIME('now', 'localtime')"
                               " AND notified = 0")
         allRows = self.dbCursor.fetchall()
-
+        print('allrows: %s' % allRows)
         for row in allRows:
             import time
-            time.sleep(3)
-            print(row)
-            self.reminderisdue.emit(*row)
+            time.sleep(1)
+            # print(row)
             # Set notified = 1
             unique_hash = row[0]
-            self.dbCursor.execute("UPDATE reminderstable SET notified = 1 WHERE unique_hash = ?",
-                                  (unique_hash, ))
-            self.dbConn.commit()
+            try:
+                self.dbCursor.execute("UPDATE reminderstable SET notified = 1 WHERE unique_hash = ?",
+                                      (unique_hash, ))
+                print('Set notified 1 for hash %s' % unique_hash)
+                self.dbConn.commit()
+                print('committed')
+            except Exception as dbexc:
+                print('Exception: %s' % str(dbexc))
+            finally:
+                self.reminderisdue.emit(*row)
 
 
 def main():
