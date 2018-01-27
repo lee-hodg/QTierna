@@ -73,6 +73,29 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.worker.reminderisdue.connect(self.launch_reminder)
         self.workerThread.start()
 
+        # Init QSystemTrayIcon
+        self.tray_icon = QSystemTrayIcon(self)
+        # self.tray_icon.setIcon(self.style().standardIcon(QStyle.SP_ComputerIcon))
+        self.tray_icon.setIcon(QIcon("icons/alarm-clock-white.png"))
+        # '''
+        #     Define and add steps to work with the system tray icon
+        #     show - show window
+        #     hide - hide window
+        #     exit - exit from application
+        # '''
+        show_action = QAction("Show", self)
+        quit_action = QAction("Exit", self)
+        hide_action = QAction("Hide", self)
+        show_action.triggered.connect(self.show)
+        hide_action.triggered.connect(self.hide)
+        quit_action.triggered.connect(qApp.quit)
+        tray_menu = QMenu()
+        tray_menu.addAction(show_action)
+        tray_menu.addAction(hide_action)
+        tray_menu.addAction(quit_action)
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.show()
+
         # self.actionExport_Data.triggered.connect(self.export_action_triggered)
         # self.actionImport_Data.triggered.connect(self.import_action_triggered)
         # self.actionPreferences.triggered.connect(self.preferences_action_triggered)
@@ -235,15 +258,27 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
     #     """This guy closes the application"""
     #     self.close()
 
-    def closeEvent(self, event, *args, **kwargs):
-        """Overrides the default close method"""
+    # Override closeEvent, to intercept the window closing event
+    # The window will be closed only if there is no check mark in the check box
+    def closeEvent(self, event):
+        event.ignore()
+        self.hide()
+        self.tray_icon.showMessage(
+            "Tray Program",
+            "Application was minimized to Tray",
+            QSystemTrayIcon.Information,
+            2000
+        )
 
-        result = QMessageBox.question(self, __appname__, "Are you sure you want to exit?", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+    # def closeEvent(self, event, *args, **kwargs):
+    #     """Overrides the default close method"""
 
-        if result == QMessageBox.Yes:
-            event.accept()
-        else:
-            event.ignore()
+    #     result = QMessageBox.question(self, __appname__, "Are you sure you want to exit?", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+
+    #     if result == QMessageBox.Yes:
+    #         event.accept()
+    #     else:
+    #         event.ignore()
 
 
 class Worker(QObject):
@@ -285,6 +320,14 @@ def main():
     QCoreApplication.setOrganizationDomain("logicon.io")
 
     app = QApplication(sys.argv)
+
+    if not QSystemTrayIcon.isSystemTrayAvailable():
+        QMessageBox.critical(None, "Systray",
+                                   "I couldn't detect any system tray on this system.")
+        sys.exit(1)
+
+    # QApplication.setQuitOnLastWindowClosed(False)
+
     form = Main()
     form.show()
     app.exec_()
