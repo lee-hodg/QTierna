@@ -6,6 +6,7 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 from datetime import datetime
 from tzlocal import get_localzone
+from utils import str2bool, bool2str, get_utc_now, dt2str, localstr2utc, utcstr2local
 import sys
 import pytz
 import hashlib
@@ -15,8 +16,8 @@ import os
 import logging
 import csv
 
-from ui_files import mainWindow, addDialog, prefDialog, aboutDialog
 
+from ui_files import mainWindow, addDialog, prefDialog, aboutDialog
 
 if 'win' in sys.platform.lower():
     appDataPath = os.path.join(os.environ["APPDATA"], __appname__)
@@ -33,60 +34,6 @@ logging.basicConfig(filename=os.path.join(appDataPath,  "%s.log" % __appname__),
                     format="%(asctime)-15s: %(name)-18s - %(levelname)-8s - %(module)-15s - %(funcName)-20s - %(lineno)-6d - %(message)s")
 
 logger = logging.getLogger(name=__file__)
-
-
-def str2bool(arg):
-    return str(arg).lower() in ["true", 1, "1", "ok"]
-
-
-def bool2str(arg):
-    if arg:
-        return "True"
-    else:
-        return "False"
-
-
-def get_utc_now():
-    return pytz.utc.localize(datetime.utcnow())
-
-
-def dt2str(dt):
-    '''
-    Convert a datetime obj to string with format '%Y-%m-%d %H:%M'
-    (saves a little typing, given we always use this format)
-    '''
-    return dt.strftime('%Y-%m-%d %H:%M')
-
-
-def localstr2utc(localstr, time_zone, date_format='%Y-%m-%d %H:%M'):
-    '''
-    Take a string in format <date_format> representing a datetime
-    in time zone <time_zone>. Parse it to naive datetime obj, then localize
-    it using the pytz timezone's localize method creating an aware datetime
-    in the given <time_zone>.
-    Now convert this to an aware datetime in the UTC timezone
-
-    Note that datetime.now(tz) and datetime.now().replace(tzinfo=tz)
-    can be different. The pytz docs notes that the tzinfo arg of standard
-    datetime constructors does not work with pytz for many timezones
-    (It didnt work in Costa Rica!)
-    However it's safe for utc datetimes. DO NOT USE IT OTHERWISE!!
-    More generally, the principle to abide by is covert to utc asap, do work,
-    and only out local to users.
-    Could also consider arrow package to simplify life
-    '''
-    aware_dt = time_zone.localize(datetime.strptime(localstr, date_format))
-    utc_aware_dt = aware_dt.astimezone(pytz.UTC)
-    return utc_aware_dt
-
-
-def utcstr2local(utcstr, time_zone, date_format='%Y-%m-%d %H:%M'):
-    '''
-    In brief, convert a utc datetime str in format <date_format> to local timezone datetime obj
-    '''
-    utc_aware_dt = pytz.utc.localize(datetime.strptime(utcstr, date_format))
-    local_aware_dt = utc_aware_dt.astimezone(time_zone)
-    return local_aware_dt
 
 
 class AddDialog(QDialog, addDialog.Ui_addDialog):
@@ -143,7 +90,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
         self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "QTierna", "QTierna")
         self.minimizeToTray = str2bool(self.settings.value("minimizeToTray", True))
-        self.showHideComplete = str2bool(self.settings.value("showHideComplete", True))
+        self.showcompleted = str2bool(self.settings.value("showcompleted", True))
         self.time_zone = pytz.timezone(self.settings.value("time_zone", get_localzone().zone))
         print('init tz as %s' % self.time_zone)
 
@@ -190,7 +137,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.actionAbout.triggered.connect(self.about_action_triggered)
         self.actionExit_2.triggered.connect(self.exit_action_triggered)
 
-        self.refresh_table()
+        self.refresh_table(self.showcompleted)
 
     def _color_row(self, rowidx, color):
         '''
@@ -200,9 +147,12 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         for j in range(self.mainTableWidget.columnCount()):
             self.mainTableWidget.item(rowidx, j).setBackground(color)
 
-    def refresh_table(self):
+    def refresh_table(self, showcompleted=True):
         """Refreshes (or initially loads) the table according to db"""
-        self.dbCursor.execute("""SELECT notified, due, category, reminder FROM reminderstable""")
+        if showcompleted:
+            self.dbCursor.execute("""SELECT notified, due, category, reminder FROM reminderstable""")
+        else:
+            self.dbCursor.execute("""SELECT notified, due, category, reminder FROM reminderstable WHERE notified=0;""")
         allRows = self.dbCursor.fetchall()
 
         # Sort first on notified status and then on datetime
@@ -389,7 +339,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
     def preferences_action_triggered(self):
         """Fires up the Preferences dialog"""
-        dlg = PrefDialog(minimize=self.minimizeToTray, showcomplete=self.showHideComplete, time_zone=self.time_zone)
+        dlg = PrefDialog(minimize=self.minimizeToTray, showcomplete=self.showcompleted, time_zone=self.time_zone)
         # Still need to wire up the combo timezone selection
         dlg.minimizeCheckBox.stateChanged.connect(self.set_minimize_behavior)
         dlg.hideCompleteCheckBox.stateChanged.connect(self.show_hide_complete)
@@ -402,7 +352,8 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
     def show_hide_complete(self, state):
         print('The show/hide complete state is %s' % state)
-        self.settings.setValue("showHideCompleted",  bool2str(state))
+        self.settings.setValue("showcompleted",  bool2str(state))
+        self.refresh_table(showcompleted=state)
 
     def about_action_triggered(self):
         """Opens the About dialog"""
