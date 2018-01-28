@@ -52,6 +52,8 @@ class AboutDialog(QDialog, aboutDialog.Ui_aboutDialog):
 
 class PrefDialog(QDialog, prefDialog.Ui_prefDialog):
 
+    time_zone_changed = Signal(str)
+
     def __init__(self, parent=None, minimize=True, showcomplete=True, time_zone=None):
         super(PrefDialog, self).__init__(parent)
         self.setupUi(self)
@@ -66,6 +68,16 @@ class PrefDialog(QDialog, prefDialog.Ui_prefDialog):
         # Prefs for min to systray and hiding completed reminders
         self.minimizeCheckBox.setChecked(minimize)
         self.hideCompleteCheckBox.setChecked(showcomplete)
+
+        # Signal
+        self.tzComboBox.currentIndexChanged.connect(self.handle_time_zone_changed)
+
+    def handle_time_zone_changed(self):
+        '''
+        So we can send our own data
+        '''
+        time_zone = self.tzComboBox.currentText()
+        self.time_zone_changed.emit(time_zone)
 
 
 class Main(QMainWindow, mainWindow.Ui_mainWindow):
@@ -343,6 +355,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         # Still need to wire up the combo timezone selection
         dlg.minimizeCheckBox.stateChanged.connect(self.set_minimize_behavior)
         dlg.hideCompleteCheckBox.stateChanged.connect(self.show_hide_complete)
+        dlg.time_zone_changed.connect(self.update_time_zone)
         dlg.exec_()
 
     def set_minimize_behavior(self, state):
@@ -353,7 +366,14 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
     def show_hide_complete(self, state):
         print('The show/hide complete state is %s' % state)
         self.settings.setValue("showcompleted",  bool2str(state))
+        self.showcompleted = state
         self.refresh_table(showcompleted=state)
+
+    @Slot(str)
+    def update_time_zone(self, time_zone):
+        self.time_zone = pytz.timezone(time_zone)
+        self.settings.setValue('time_zone', time_zone)
+        self.refresh_table(showcompleted=self.showcompleted)
 
     def about_action_triggered(self):
         """Opens the About dialog"""

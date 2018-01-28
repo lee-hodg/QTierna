@@ -1,8 +1,6 @@
-> Wire up the timezone combo box signal
-
 > Make the view/edit reminder dlg. It should be essentially just a mod of the AddDialog,
   but making it standard rather than dumb, so it accepts existing reminder
-  and the save does UPDATE not INSERT
+  and the save does UPDATE not INSERT. Enforce they select only 1 row at once
 
 > Better styling/design maybe use layouts?? Resizing issues etc
 
