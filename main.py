@@ -4,7 +4,10 @@ __module__ = "main"
 
 from PySide.QtCore import *
 from PySide.QtGui import *
+from datetime import datetime
+from tzlocal import get_localzone
 import sys
+import pytz
 import hashlib
 # import re
 import sqlite3
@@ -32,6 +35,49 @@ logging.basicConfig(filename=os.path.join(appDataPath,  "%s.log" % __appname__),
 logger = logging.getLogger(name=__file__)
 
 
+def get_utc_now():
+    return pytz.utc.localize(datetime.utcnow())
+
+
+def dt2str(dt):
+    '''
+    Convert a datetime obj to string with format '%Y-%m-%d %H:%M'
+    (saves a little typing, given we always use this format)
+    '''
+    return dt.strftime('%Y-%m-%d %H:%M')
+
+
+def localstr2utc(localstr, time_zone, date_format='%Y-%m-%d %H:%M'):
+    '''
+    Take a string in format <date_format> representing a datetime
+    in time zone <time_zone>. Parse it to naive datetime obj, then localize
+    it using the pytz timezone's localize method creating an aware datetime
+    in the given <time_zone>.
+    Now convert this to an aware datetime in the UTC timezone
+
+    Note that datetime.now(tz) and datetime.now().replace(tzinfo=tz)
+    can be different. The pytz docs notes that the tzinfo arg of standard
+    datetime constructors does not work with pytz for many timezones
+    (It didnt work in Costa Rica!)
+    However it's safe for utc datetimes. DO NOT USE IT OTHERWISE!!
+    More generally, the principle to abide by is covert to utc asap, do work,
+    and only out local to users.
+    Could also consider arrow package to simplify life
+    '''
+    aware_dt = time_zone.localize(datetime.strptime(localstr, date_format))
+    utc_aware_dt = aware_dt.astimezone(pytz.UTC)
+    return utc_aware_dt
+
+
+def utcstr2local(utcstr, time_zone, date_format='%Y-%m-%d %H:%M'):
+    '''
+    In brief, convert a utc datetime str in format <date_format> to local timezone datetime obj
+    '''
+    utc_aware_dt = pytz.utc.localize(datetime.strptime(utcstr, date_format))
+    local_aware_dt = utc_aware_dt.astimezone(time_zone)
+    return local_aware_dt
+
+
 class AddDialog(QDialog, addDialog.Ui_addDialog):
 
     def __init__(self, parent=None):
@@ -56,6 +102,8 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
         self.dbCursor.execute("""CREATE INDEX IF NOT EXISTS unique_hash_idx ON reminderstable (unique_hash);""")
         self.dbConn.commit()
+
+        self.notified_color = QColor(115, 235, 174, 127)
 
         self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "QTierna", "QTierna")
 
@@ -104,25 +152,39 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         # self.showToolbar = utilities.str2bool(self.settings.value("showToolbar", True))
         # self.mainToolBar.setVisible(self.showToolbar)
 
-        self.load_initial_settings()
+        # Force the user to user local timezone for now
+        self.time_zone = get_localzone()
 
-    def load_initial_settings(self):
-        """Loads the initial settings for the application. Sets the mainTable column widths,"""
+        self.refresh_table()
+
+    def _color_row(self, rowidx, color):
+        '''
+        Color row with index <rowidx> color <color>
+        where <color> is a QColor, e.g. QColor(255, 0, 0, 127)
+        '''
+        for j in range(self.mainTableWidget.columnCount()):
+            self.mainTableWidget.item(rowidx, j).setBackground(color)
+
+    def refresh_table(self):
+        """Refreshes (or initially loads) the table according to db"""
         self.dbCursor.execute("""SELECT notified, due, category, reminder FROM reminderstable""")
         allRows = self.dbCursor.fetchall()
 
-        allRows = sorted(allRows, key=lambda x: x[0], reverse=True)
+        # Sort first on notified status and then on datetime
+        allRows = sorted(allRows, key=lambda x: (x[0], datetime.strptime(x[1], '%Y-%m-%d %H:%M')))  # , reverse=True)
+        self.mainTableWidget.setRowCount(0)  # Delete rows ready to repopulate
         for inx, row in enumerate(allRows):
+            # UTC in db
+            utc_datetime_str = row[1]
+            local_datetime_str = dt2str(utcstr2local(utc_datetime_str, self.time_zone))
             self.mainTableWidget.insertRow(inx)
-            # self.mainTableWidget.setItem(inx, 0, QTableWidgetItem(row[0]).setBackground(QColor(255, 0, 0, 127)))
-            self.mainTableWidget.setItem(inx, 0, QTableWidgetItem(row[1]))
+            self.mainTableWidget.setItem(inx, 0, QTableWidgetItem(local_datetime_str))
             self.mainTableWidget.setItem(inx, 1, QTableWidgetItem(row[2]))
             self.mainTableWidget.setItem(inx, 2, QTableWidgetItem(row[3]))
 
             if row[0] == 1:
                 # Already notified
-                for j in range(self.mainTableWidget.columnCount()):
-                    self.mainTableWidget.item(inx, j).setBackground(QColor(255, 0, 0, 127))
+                self._color_row(inx, self.notified_color)
 
     def add_button_clicked(self):
         """Opens the add reminder dialog"""
@@ -131,24 +193,28 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             # User Saved
             date_ = dialog.calendarWidget.selectedDate().toString("yyyy-MM-dd")
             time_ = dialog.timeEdit.time().toString('HH:mm')
+            due_local_str = ' '.join([date_, time_])
+            # This is in user's local timezone, we want UTC in db
             # YYYY-MM-DD HH:MM
-            due = ' '.join([date_, time_])
+            due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
+
             category = 'default'
             reminder = dialog.textEdit.toPlainText()
 
-            # if not self.validate_fields():
-            #     return False
+            if not self.validate_fields(dialog):
+                return False
 
             currentRowCount = self.mainTableWidget.rowCount()
 
+            # But display local datetime to user
             self.mainTableWidget.insertRow(currentRowCount)
-            self.mainTableWidget.setItem(currentRowCount, 0, QTableWidgetItem(due))
+            self.mainTableWidget.setItem(currentRowCount, 0, QTableWidgetItem(due_local_str))
             self.mainTableWidget.setItem(currentRowCount, 1, QTableWidgetItem(category))
             self.mainTableWidget.setItem(currentRowCount, 2, QTableWidgetItem(reminder))
 
-            unique_hash = self._get_unique_hash(*(due, category, reminder))
+            unique_hash = self._get_unique_hash(*(due_utc_str, category, reminder))
             notified = 0
-            parameters = (None, unique_hash, notified, due, category, reminder)
+            parameters = (None, unique_hash, notified, due_utc_str, category, reminder)
             self.dbCursor.execute('''INSERT INTO reminderstable VALUES (?, ?, ?, ?, ?, ?)''', parameters)
             self.dbConn.commit()
 
@@ -160,7 +226,9 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             # what does that mean for python when pyside was pip installed??
             QSound.play("media/alarm_beep.wav")
         self.show()
-        QMessageBox.information(self, "%s: %s" % (category, when), message)
+        local_when = dt2str(utcstr2local(when, self.time_zone, date_format='%Y-%m-%d %H:%M:%S'))
+        QMessageBox.information(self, "%s: %s" % (category, local_when), message)
+        self.refresh_table()
 
     def _get_unique_hash(self, *args):
         '''
@@ -194,20 +262,41 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         else:
             QMessageBox.warning(None, 'Select rows', 'You must select a row for removal!')
 
-    # def validate_fields(self):
-    #     """Validates the QLineEdits based on RegEx"""
-    #     self.dbCursor.execute("""SELECT username FROM Main""")
-    #     usernames = self.dbCursor.fetchall()
-    #     for username in usernames:
-    #         if self.username.text() in username[0]:
-    #             QMessageBox.warning(self, "Warning!", "Such username already exists!")
-    #             return False
+    def validate_fields(self, dialog):
+        """Ensure no duplicates and reminder size OK, date not in past"""
+        category = 'default'
+        reminder = dialog.textEdit.toPlainText()
+        date_ = dialog.calendarWidget.selectedDate().toString("yyyy-MM-dd")
+        time_ = dialog.timeEdit.time().toString('HH:mm')
+        # YYYY-MM-DD HH:MM
+        due_local_str = ' '.join([date_, time_])
+        due_utc = localstr2utc(due_local_str, self.time_zone)
+        due_utc_str = dt2str(due_utc)
 
-    #     if not re.match('^[2-9]\d{2}-\d{3}-\d{4}', self.phoneNumber.text()):
-    #         QMessageBox.warning(self, "Warning", "Phone number seems incorrect!")
-    #         return False
+        # Dates in future only
+        print('due_utc %s and get utc now %s' % (due_utc, get_utc_now()))
+        if due_utc <= get_utc_now():
+            QMessageBox.warning(self, "Warning", "Reminder is in past!")
+            return False
 
-    #     return True
+        # Check existence: Get the hash for the combo (we store datetimes in db as utc)
+        unique_hash = self._get_unique_hash(*(due_utc_str, category, reminder))
+        self.dbCursor.execute('SELECT EXISTS(SELECT 1 FROM reminderstable WHERE unique_hash = ?);',
+                              (unique_hash, ))
+        exists = self.dbCursor.fetchone()
+        if exists[0]:
+            QMessageBox.warning(self, "Warning!", "You already entered this reminder!")
+            return False
+
+        # Check length of the reminder
+        if len(reminder) > 1000:
+            QMessageBox.warning(self, "Warning", "Reminder is %i characters too long!" % (len(reminder) - 1000))
+            return False
+        if len(reminder) == 0:
+            QMessageBox.warning(self, "Warning", "Missing reminder note")
+            return False
+
+        return True
 
     def import_action_triggered(self):
         '''Import csv to db'''
@@ -220,16 +309,20 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             try:
                 with open(dbFile[0], "rb") as csvFile:
                     csvReader = csv.reader(csvFile, delimiter=',', quotechar="\"", quoting=csv.QUOTE_MINIMAL)
-                    # for row in csvReader:
-                    #     self.dbCursor.execute('IF NOT EXISTS (SELECT * FROM reminderstable WHERE ID = @SomeID)'
-                    #                               INSERT INTO dbo.Employee(Col1, ..., ColN)
-                    #                               VALUES(Val1, .., ValN)
-
+                    self.dbCursor.execute('DELETE FROM reminderstable;')
+                    rowCount = 0
+                    for row in csvReader:
+                        rowCount += 1
+                        self.dbCursor.execute(' INSERT INTO reminderstable(id, unique_hash, notified, due, category, reminder)'
+                                              ' VALUES(?, ?, ?, ?, ?, ?);',
+                                              tuple(row))
+                        self.dbConn.commit()
+                    self.refresh_table()
                     msg = ("Successfully imported %i rows from file\r\n%s"
                            % (rowCount, (QDir.toNativeSeparators(dbFile[0]))))
                     QMessageBox.information(self, __appname__, msg)
-            except Exception as xportexc:
-                QMessageBox.critical(self, __appname__, "Error exporting file, error is\r\n" + str(xportexc))
+            except Exception as importexc:
+                QMessageBox.critical(self, __appname__, "Error importing file, error is\r\n" + str(importexc))
                 return
 
     def export_action_triggered(self):
@@ -286,8 +379,8 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         event.ignore()
         self.hide()
         self.tray_icon.showMessage(
-            "Tray Program",
-            "Application was minimized to Tray",
+            "QTierna",
+            "QTiera was minimized to Tray",
             QSystemTrayIcon.Information,
             2000
         )
@@ -320,7 +413,7 @@ class Worker(QObject):
     def query_db(self):
         print('query db')
         self.dbCursor.execute("SELECT unique_hash, datetime(due), category, reminder FROM"
-                              " reminderstable where datetime(due) <= DATETIME('now', 'localtime')"
+                              " reminderstable where datetime(due) <= DATETIME('now', 'utc')"
                               " AND notified = 0")
         allRows = self.dbCursor.fetchall()
         print('allrows: %s' % allRows)
