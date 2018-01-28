@@ -15,7 +15,7 @@ import os
 import logging
 import csv
 
-from ui_files import mainWindow, addDialog
+from ui_files import mainWindow, addDialog, prefDialog, aboutDialog
 
 
 if 'win' in sys.platform.lower():
@@ -33,6 +33,17 @@ logging.basicConfig(filename=os.path.join(appDataPath,  "%s.log" % __appname__),
                     format="%(asctime)-15s: %(name)-18s - %(levelname)-8s - %(module)-15s - %(funcName)-20s - %(lineno)-6d - %(message)s")
 
 logger = logging.getLogger(name=__file__)
+
+
+def str2bool(arg):
+    return str(arg).lower() in ["true", 1, "1", "ok"]
+
+
+def bool2str(arg):
+    if arg:
+        return "True"
+    else:
+        return "False"
 
 
 def get_utc_now():
@@ -85,6 +96,31 @@ class AddDialog(QDialog, addDialog.Ui_addDialog):
         self.setupUi(self)
 
 
+class AboutDialog(QDialog, aboutDialog.Ui_aboutDialog):
+
+    def __init__(self, parent=None):
+        super(AboutDialog, self).__init__(parent)
+        self.setupUi(self)
+
+
+class PrefDialog(QDialog, prefDialog.Ui_prefDialog):
+
+    def __init__(self, parent=None, minimize=True, showcomplete=True, time_zone=None):
+        super(PrefDialog, self).__init__(parent)
+        self.setupUi(self)
+        if time_zone is None:
+            time_zone = get_localzone()
+        # Populate the tz combo box with all common pytz timezones
+        for i, tz in enumerate(pytz.common_timezones):
+            self.tzComboBox.addItem(QApplication.translate("prefDialog", tz, None, QApplication.UnicodeUTF8))
+            if tz == time_zone.zone:
+                self.tzComboBox.setCurrentIndex(i)
+
+        # Prefs for min to systray and hiding completed reminders
+        self.minimizeCheckBox.setChecked(minimize)
+        self.hideCompleteCheckBox.setChecked(showcomplete)
+
+
 class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
     dbPath = os.path.join(appDataPath, "reminders.db")
@@ -106,6 +142,10 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.notified_color = QColor(115, 235, 174, 127)
 
         self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "QTierna", "QTierna")
+        self.minimizeToTray = str2bool(self.settings.value("minimizeToTray", True))
+        self.showHideComplete = str2bool(self.settings.value("showHideComplete", True))
+        self.time_zone = pytz.timezone(self.settings.value("time_zone", get_localzone().zone))
+        print('init tz as %s' % self.time_zone)
 
         self.actionAdd_Reminder.triggered.connect(self.add_button_clicked)
         self.actionRemove_Reminder.triggered.connect(self.remove_button_clicked)
@@ -146,14 +186,9 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
         self.actionExport_Data.triggered.connect(self.export_action_triggered)
         self.actionImport_Data.triggered.connect(self.import_action_triggered)
-        # self.actionPreferences.triggered.connect(self.preferences_action_triggered)
-        # self.actionExit.triggered.connect(self.exit_action_triggered)
-
-        # self.showToolbar = utilities.str2bool(self.settings.value("showToolbar", True))
-        # self.mainToolBar.setVisible(self.showToolbar)
-
-        # Force the user to user local timezone for now
-        self.time_zone = get_localzone()
+        self.actionPreferences.triggered.connect(self.preferences_action_triggered)
+        self.actionAbout.triggered.connect(self.about_action_triggered)
+        self.actionExit_2.triggered.connect(self.exit_action_triggered)
 
         self.refresh_table()
 
@@ -352,48 +387,52 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
                 QMessageBox.critical(self, __appname__, "Error exporting file, error is\r\n" + str(xportexc))
                 return
 
-    # def preferences_action_triggered(self):
-    #     """Fires up the Preferences dialog"""
-    #     dlg = preferences.Preferences(self, showToolbar=self.showToolbar)
-    #     sig = dlg.checkboxSig
+    def preferences_action_triggered(self):
+        """Fires up the Preferences dialog"""
+        dlg = PrefDialog(minimize=self.minimizeToTray, showcomplete=self.showHideComplete, time_zone=self.time_zone)
+        # Still need to wire up the combo timezone selection
+        dlg.minimizeCheckBox.stateChanged.connect(self.set_minimize_behavior)
+        dlg.hideCompleteCheckBox.stateChanged.connect(self.show_hide_complete)
+        dlg.exec_()
 
-    #     sig.connect(self.showHideToolbar)
-    #     dlg.exec_()
+    def set_minimize_behavior(self, state):
+        print('The minimize state is %s' % state)
+        self.minimizeToTray = state
+        self.settings.setValue("minimizeToTray",  bool2str(state))
 
-    # def showHideToolbar(self, param):
-    #     """Shows/hides main toolbar based on the checkbox value from preferences"""
-    #     self.mainToolBar.setVisible(param)
-    #     self.settings.setValue("showToolbar", utilities.bool2str(param))
+    def show_hide_complete(self, state):
+        print('The show/hide complete state is %s' % state)
+        self.settings.setValue("showHideCompleted",  bool2str(state))
 
-    # def about_action_triggered(self):
-    #     """Opens the About dialog"""
-    #     pass
+    def about_action_triggered(self):
+        """Opens the About dialog"""
+        dlg = AboutDialog()
+        dlg.exec_()
 
-    # def exit_action_triggered(self):
-    #     """This guy closes the application"""
-    #     self.close()
+    def exit_action_triggered(self):
+        print('Goodbye')
+        self.close()
 
     # Override closeEvent, to intercept the window closing event
     # The window will be closed only if there is no check mark in the check box
     def closeEvent(self, event):
-        event.ignore()
-        self.hide()
-        self.tray_icon.showMessage(
-            "QTierna",
-            "QTiera was minimized to Tray",
-            QSystemTrayIcon.Information,
-            2000
-        )
+        if self.minimizeToTray:
+            event.ignore()
+            self.hide()
+            self.tray_icon.showMessage(
+                "QTierna",
+                "QTiera was minimized to Tray",
+                QSystemTrayIcon.Information,
+                2000
+            )
+        else:
+            result = QMessageBox.question(self, __appname__, "Are you sure you want to exit?",
+                                          QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
 
-    # def closeEvent(self, event, *args, **kwargs):
-    #     """Overrides the default close method"""
-
-    #     result = QMessageBox.question(self, __appname__, "Are you sure you want to exit?", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-
-    #     if result == QMessageBox.Yes:
-    #         event.accept()
-    #     else:
-    #         event.ignore()
+            if result == QMessageBox.Yes:
+                event.accept()
+            else:
+                event.ignore()
 
 
 class Worker(QObject):
