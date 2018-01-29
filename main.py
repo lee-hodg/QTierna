@@ -6,10 +6,9 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 from datetime import datetime
 from tzlocal import get_localzone
-from utils import str2bool, bool2str, get_utc_now, dt2str, localstr2utc, utcstr2local
+from utils import str2bool, bool2str, dt2str, utcstr2local
 import sys
 import pytz
-import hashlib
 # import re
 import sqlite3
 import os
@@ -17,7 +16,9 @@ import logging
 import csv
 
 
-from ui_files import mainWindow, addDialog, prefDialog, aboutDialog
+from ui_files import mainWindow, prefDialog, aboutDialog
+
+from add_dlg import AddEditDialog
 
 if 'win' in sys.platform.lower():
     appDataPath = os.path.join(os.environ["APPDATA"], __appname__)
@@ -34,13 +35,6 @@ logging.basicConfig(filename=os.path.join(appDataPath,  "%s.log" % __appname__),
                     format="%(asctime)-15s: %(name)-18s - %(levelname)-8s - %(module)-15s - %(funcName)-20s - %(lineno)-6d - %(message)s")
 
 logger = logging.getLogger(name=__file__)
-
-
-class AddDialog(QDialog, addDialog.Ui_addDialog):
-
-    def __init__(self, parent=None):
-        super(AddDialog, self).__init__(parent)
-        self.setupUi(self)
 
 
 class AboutDialog(QDialog, aboutDialog.Ui_aboutDialog):
@@ -184,36 +178,14 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
                 self._color_row(inx, self.notified_color)
 
     def add_button_clicked(self):
-        """Opens the add reminder dialog"""
-        dialog = AddDialog()
+        """Opens the add reminder dialog. For edit would be same but with existing_reminder as Reminder inst"""
+        print('passing parent:', self)
+        dialog = AddEditDialog(self.dbCursor, self.time_zone, existing_reminder=None, parent=self)
         if dialog.exec_():
-            # User Saved
-            date_ = dialog.calendarWidget.selectedDate().toString("yyyy-MM-dd")
-            time_ = dialog.timeEdit.time().toString('HH:mm')
-            due_local_str = ' '.join([date_, time_])
-            # This is in user's local timezone, we want UTC in db
-            # YYYY-MM-DD HH:MM
-            due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
-
-            category = 'default'
-            reminder = dialog.textEdit.toPlainText()
-
-            if not self.validate_fields(dialog):
-                return False
-
-            currentRowCount = self.mainTableWidget.rowCount()
-
-            # But display local datetime to user
-            self.mainTableWidget.insertRow(currentRowCount)
-            self.mainTableWidget.setItem(currentRowCount, 0, QTableWidgetItem(due_local_str))
-            self.mainTableWidget.setItem(currentRowCount, 1, QTableWidgetItem(category))
-            self.mainTableWidget.setItem(currentRowCount, 2, QTableWidgetItem(reminder))
-
-            unique_hash = self._get_unique_hash(*(due_utc_str, category, reminder))
-            notified = 0
-            parameters = (None, unique_hash, notified, due_utc_str, category, reminder)
-            self.dbCursor.execute('''INSERT INTO reminderstable VALUES (?, ?, ?, ?, ?, ?)''', parameters)
-            self.dbConn.commit()
+            print 'dlg exec success'
+            self.refresh_table()
+        else:
+            print 'no dice'
 
     @Slot(str, str, str, str)
     def launch_reminder(self, unique_hash, when, category, message):
@@ -227,17 +199,6 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         QMessageBox.information(self, "%s: %s" % (category, local_when), message)
         self.refresh_table()
 
-    def _get_unique_hash(self, *args):
-        '''
-        Use hash of the date str, category, note
-        of row to index it rather than where and and and thing
-        which would be inefficient
-        '''
-        m = hashlib.md5()
-        for arg in args:
-            m.update(arg.encode('utf8'))
-        return m.hexdigest()
-
     def remove_button_clicked(self):
         """Removes the selected row from the mainTable"""
         # currentRow = self.mainTableWidget.currentRow()
@@ -247,53 +208,16 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             # sorted is important so we delete last in last first
             # and don't mess up the indexing
             for row in sorted(selected_rows, reverse=True):
-                params = (self.mainTableWidget.item(row, 0).text(),
-                          self.mainTableWidget.item(row, 1).text(),
-                          self.mainTableWidget.item(row, 2).text())
-                unique_hash = self._get_unique_hash(*(params))
-                # print('Deleting hash %s for params %s' % (unique_hash, params))
-                self.dbCursor.execute("""DELETE FROM reminderstable WHERE unique_hash=?""",
-                                      (unique_hash, ))
-                self.dbConn.commit()
+                due_local_str = self.mainTableWidget.item(row, 0).text()
+                utc_due = dt2str(localstr2utc(due_local_str, self.time_zone))
+                category = self.mainTableWidget.item(row, 1).text()
+                reminder = self.mainTableWidget.item(row, 2).text()
+                r = Reminder(utc_due, category, reminder)
+                r._delete_from_db()
                 self.mainTableWidget.removeRow(row)
+            QMessageBox.information(self, 'Removed', 'Removed %i reminders.' % len(selected_rows))
         else:
-            QMessageBox.warning(None, 'Select rows', 'You must select a row for removal!')
-
-    def validate_fields(self, dialog):
-        """Ensure no duplicates and reminder size OK, date not in past"""
-        category = 'default'
-        reminder = dialog.textEdit.toPlainText()
-        date_ = dialog.calendarWidget.selectedDate().toString("yyyy-MM-dd")
-        time_ = dialog.timeEdit.time().toString('HH:mm')
-        # YYYY-MM-DD HH:MM
-        due_local_str = ' '.join([date_, time_])
-        due_utc = localstr2utc(due_local_str, self.time_zone)
-        due_utc_str = dt2str(due_utc)
-
-        # Dates in future only
-        print('due_utc %s and get utc now %s' % (due_utc, get_utc_now()))
-        if due_utc <= get_utc_now():
-            QMessageBox.warning(self, "Warning", "Reminder is in past!")
-            return False
-
-        # Check existence: Get the hash for the combo (we store datetimes in db as utc)
-        unique_hash = self._get_unique_hash(*(due_utc_str, category, reminder))
-        self.dbCursor.execute('SELECT EXISTS(SELECT 1 FROM reminderstable WHERE unique_hash = ?);',
-                              (unique_hash, ))
-        exists = self.dbCursor.fetchone()
-        if exists[0]:
-            QMessageBox.warning(self, "Warning!", "You already entered this reminder!")
-            return False
-
-        # Check length of the reminder
-        if len(reminder) > 1000:
-            QMessageBox.warning(self, "Warning", "Reminder is %i characters too long!" % (len(reminder) - 1000))
-            return False
-        if len(reminder) == 0:
-            QMessageBox.warning(self, "Warning", "Missing reminder note")
-            return False
-
-        return True
+            QMessageBox.warning(self, 'Select rows', 'You must select a row for removal!')
 
     def import_action_triggered(self):
         '''Import csv to db'''

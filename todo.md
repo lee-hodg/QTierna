@@ -1,3 +1,9 @@
+> layouts for main window, prob treee on left with cats, all, done, work, shopping etc
+solving the done pile prob
+> finish model managers
+> wire in cats picker dialog on add pop...some list with add/remove buttons
+
+
 > Make the view/edit reminder dlg. It should be essentially just a mod of the AddDialog,
   but making it standard rather than dumb, so it accepts existing reminder
   and the save does UPDATE not INSERT. Enforce they select only 1 row at once

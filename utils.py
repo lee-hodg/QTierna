@@ -1,6 +1,20 @@
 from tzlocal import get_localzone
 import pytz
+import hashlib
 from datetime import datetime
+
+
+def _get_unique_hash(self, *args):
+	'''
+	Use hash of the date str, category, note
+	of row to index it rather than where and and and thing
+	which would be inefficient
+	'''
+	m = hashlib.md5()
+	for arg in args:
+		m.update(arg.encode('utf8'))
+	return m.hexdigest()
+
 
 def str2bool(arg):
     return str(arg).lower() in ["true", 1, "1", "ok"]
