@@ -1,19 +1,24 @@
-from tzlocal import get_localzone
 import pytz
-import hashlib
 from datetime import datetime
 
 
-def _get_unique_hash(self, *args):
-	'''
-	Use hash of the date str, category, note
-	of row to index it rather than where and and and thing
-	which would be inefficient
-	'''
-	m = hashlib.md5()
-	for arg in args:
-		m.update(arg.encode('utf8'))
-	return m.hexdigest()
+def take_first(input_list):
+    for element in input_list:
+        if element:
+            return element
+    return None
+
+
+def smart_truncate(content, length=100, suffix='...'):
+    '''
+    Take text content and truncate it to given length
+    ensuring to terminate on a whole word and
+    ending with suffix
+    '''
+    if len(content) <= length:
+        return content
+    else:
+        return content[:length].rsplit(' ', 1)[0]+suffix
 
 
 def str2bool(arg):

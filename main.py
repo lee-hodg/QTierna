@@ -6,14 +6,20 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 from datetime import datetime
 from tzlocal import get_localzone
-from utils import str2bool, bool2str, dt2str, utcstr2local
+from utils import str2bool, bool2str, dt2str, utcstr2local, smart_truncate, localstr2utc
+from models import Reminder, Category
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.sql import func
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 import sys
 import pytz
 # import re
-import sqlite3
 import os
 import logging
 import csv
+
+Base = declarative_base()
 
 
 from ui_files import mainWindow, prefDialog, aboutDialog
@@ -31,10 +37,15 @@ if not os.path.exists(appDataPath):
     except Exception as e:
         appDataPath = os.getcwd()
 
-logging.basicConfig(filename=os.path.join(appDataPath,  "%s.log" % __appname__),
-                    format="%(asctime)-15s: %(name)-18s - %(levelname)-8s - %(module)-15s - %(funcName)-20s - %(lineno)-6d - %(message)s")
+db_path = os.path.join(appDataPath, "reminders.db")
+engine = create_engine('sqlite:///%s' % db_path, echo=False)
+Session = sessionmaker(bind=engine)
 
+logging.basicConfig(filename=os.path.join(appDataPath,  "%s.log" % __appname__),
+                    level=logging.DEBUG,
+                    format="%(asctime)-15s: %(name)-18s - %(levelname)-8s - %(module)-15s - %(funcName)-20s - %(lineno)-6d - %(message)s")
 logger = logging.getLogger(name=__file__)
+logger.addHandler(logging.StreamHandler())
 
 
 class AboutDialog(QDialog, aboutDialog.Ui_aboutDialog):
@@ -76,21 +87,13 @@ class PrefDialog(QDialog, prefDialog.Ui_prefDialog):
 
 class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
-    dbPath = os.path.join(appDataPath, "reminders.db")
-    dbConn = sqlite3.connect(dbPath)
-
     def __init__(self, parent=None):
         super(Main, self).__init__(parent)
         self.setupUi(self)
 
-        self.dbCursor = self.dbConn.cursor()
-        self.dbCursor.execute("""CREATE TABLE IF NOT EXISTS reminderstable(id INTEGER PRIMARY KEY,
-                                 unique_hash TEXT, notified INT,
-                                 due TEXT, category TEXT, reminder TEXT);
-                              """)
-
-        self.dbCursor.execute("""CREATE INDEX IF NOT EXISTS unique_hash_idx ON reminderstable (unique_hash);""")
-        self.dbConn.commit()
+        # SQLAlchemy
+        self.session = Session()
+        Base.metadata.create_all(engine)
 
         self.notified_color = QColor(115, 235, 174, 127)
 
@@ -98,7 +101,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.minimizeToTray = str2bool(self.settings.value("minimizeToTray", True))
         self.showcompleted = str2bool(self.settings.value("showcompleted", True))
         self.time_zone = pytz.timezone(self.settings.value("time_zone", get_localzone().zone))
-        print('init tz as %s' % self.time_zone)
+        logger.debug('Initialized time_zone: %s' % self.time_zone)
 
         self.actionAdd_Reminder.triggered.connect(self.add_button_clicked)
         self.actionRemove_Reminder.triggered.connect(self.remove_button_clicked)
@@ -156,68 +159,64 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
     def refresh_table(self, showcompleted=True):
         """Refreshes (or initially loads) the table according to db"""
         if showcompleted:
-            self.dbCursor.execute("""SELECT notified, due, category, reminder FROM reminderstable""")
+            reminders = self.session.query(Reminder).all()
         else:
-            self.dbCursor.execute("""SELECT notified, due, category, reminder FROM reminderstable WHERE notified=0;""")
-        allRows = self.dbCursor.fetchall()
+            reminders = self.session.query(Reminder).filter(completed=False)
 
         # Sort first on notified status and then on datetime
-        allRows = sorted(allRows, key=lambda x: (x[0], datetime.strptime(x[1], '%Y-%m-%d %H:%M')))  # , reverse=True)
+        reminders = sorted(reminders, key=lambda reminder: (reminder.complete, datetime.strptime(reminder.due, '%Y-%m-%d %H:%M')))
         self.mainTableWidget.setRowCount(0)  # Delete rows ready to repopulate
-        for inx, row in enumerate(allRows):
+        for inx, reminder in enumerate(reminders):
             # UTC in db
-            utc_datetime_str = row[1]
+            utc_datetime_str = reminder.due
             local_datetime_str = dt2str(utcstr2local(utc_datetime_str, self.time_zone))
+            categories = ', '.join([category.category_name for category in reminder.categories])
             self.mainTableWidget.insertRow(inx)
             self.mainTableWidget.setItem(inx, 0, QTableWidgetItem(local_datetime_str))
-            self.mainTableWidget.setItem(inx, 1, QTableWidgetItem(row[2]))
-            self.mainTableWidget.setItem(inx, 2, QTableWidgetItem(row[3]))
+            self.mainTableWidget.setItem(inx, 1, QTableWidgetItem(categories))
+            self.mainTableWidget.setItem(inx, 2, QTableWidgetItem(smart_truncate(reminder.note)))
 
-            if row[0] == 1:
+            if reminder.complete:
                 # Already notified
                 self._color_row(inx, self.notified_color)
 
     def add_button_clicked(self):
         """Opens the add reminder dialog. For edit would be same but with existing_reminder as Reminder inst"""
-        print('passing parent:', self)
-        dialog = AddEditDialog(self.dbCursor, self.time_zone, existing_reminder=None, parent=self)
+        dialog = AddEditDialog(self.session, self.time_zone, existing_reminder=None, parent=self)
         if dialog.exec_():
-            print 'dlg exec success'
             self.refresh_table()
-        else:
-            print 'no dice'
 
-    @Slot(str, str, str, str)
-    def launch_reminder(self, unique_hash, when, category, message):
+    @Slot(str, str, str)
+    def launch_reminder(self, due, categories, note):
         # QApplication.instance().beep()
         if QSound.isAvailable():
             # Seems I would have to recompile with NAS support, but
             # what does that mean for python when pyside was pip installed??
             QSound.play("media/alarm_beep.wav")
         self.show()
-        local_when = dt2str(utcstr2local(when, self.time_zone, date_format='%Y-%m-%d %H:%M:%S'))
-        QMessageBox.information(self, "%s: %s" % (category, local_when), message)
+        local_due = dt2str(utcstr2local(due, self.time_zone, date_format='%Y-%m-%d %H:%M'))
+        QMessageBox.information(self, "%s: %s" % (local_due, categories), note)
         self.refresh_table()
 
     def remove_button_clicked(self):
         """Removes the selected row from the mainTable"""
-        # currentRow = self.mainTableWidget.currentRow()
         indices = self.mainTableWidget.selectionModel().selectedRows()
         selected_rows = [index.row() for index in indices]
         if selected_rows:
             # sorted is important so we delete last in last first
-            # and don't mess up the indexing
+            # and don't mess up the indexing of iterator
             for row in sorted(selected_rows, reverse=True):
                 due_local_str = self.mainTableWidget.item(row, 0).text()
-                utc_due = dt2str(localstr2utc(due_local_str, self.time_zone))
-                category = self.mainTableWidget.item(row, 1).text()
-                reminder = self.mainTableWidget.item(row, 2).text()
-                r = Reminder(utc_due, category, reminder)
-                r._delete_from_db()
+                due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
+                note = self.mainTableWidget.item(row, 2).text()
+                reminder = self.session.query(Reminder).filter(Reminder.due == due_utc_str,
+                                                               Reminder.note == note).first()
+                self.session.delete(reminder)
+                self.session.commit()
                 self.mainTableWidget.removeRow(row)
             QMessageBox.information(self, 'Removed', 'Removed %i reminders.' % len(selected_rows))
         else:
-            QMessageBox.warning(self, 'Select rows', 'You must select a row for removal!')
+            QMessageBox.warning(self, 'Select rows', 'You must select rows for removal.')
 
     def import_action_triggered(self):
         '''Import csv to db'''
@@ -230,17 +229,33 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             try:
                 with open(dbFile[0], "rb") as csvFile:
                     csvReader = csv.reader(csvFile, delimiter=',', quotechar="\"", quoting=csv.QUOTE_MINIMAL)
-                    self.dbCursor.execute('DELETE FROM reminderstable;')
-                    rowCount = 0
+                    self.session.query(Reminder).delete()
+                    self.session.query(Category).delete()
+                    self.session.commit()
                     for row in csvReader:
-                        rowCount += 1
-                        self.dbCursor.execute(' INSERT INTO reminderstable(id, unique_hash, notified, due, category, reminder)'
-                                              ' VALUES(?, ?, ?, ?, ?, ?);',
-                                              tuple(row))
-                        self.dbConn.commit()
+                        table_name = row[0]
+                        if table_name == 'Category':
+                            # This is a categories row to be imported to
+                            # Category model
+                            category = Category(category_id=row[1], category_name=row[2])
+                            self.session.add(category)
+                        elif table_name == 'Reminder':
+                            reminder = Reminder(id=row[1], complete=row[2], due=row[3], note=row[4])
+                            self.session.add(reminder)
+                        elif table_name == 'association':
+                            # category_id = row[1]
+                            # reminder_id = row[2]
+                            # Figure out a smart way to rebuild this. Perhaps
+                            # manually or perhaps using an associaton Model
+                            # instead
+                            pass
+
+                    self.session.commit()
                     self.refresh_table()
-                    msg = ("Successfully imported %i rows from file\r\n%s"
-                           % (rowCount, (QDir.toNativeSeparators(dbFile[0]))))
+                    category_count = self.session.query(Category).count()
+                    reminder_count = self.session.query(Reminder).count()
+                    msg = ("Successfully imported %i reminders and %i categories from file\r\n%s"
+                           % (reminder_count, category_count, (QDir.toNativeSeparators(dbFile[0]))))
                     QMessageBox.information(self, __appname__, msg)
             except Exception as importexc:
                 QMessageBox.critical(self, __appname__, "Error importing file, error is\r\n" + str(importexc))
@@ -254,20 +269,19 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         dbFile = QFileDialog.getSaveFileName(parent=None,
                                              caption="Export database to a file",
                                              directory=".", filter="QTierna CSV (*.csv)")
-
         if dbFile[0]:
             try:
                 with open(dbFile[0], "wb") as csvFile:
                     csvWriter = csv.writer(csvFile, delimiter=',', quotechar="\"", quoting=csv.QUOTE_MINIMAL)
 
-                    rows = self.dbCursor.fetchall()
-                    rowCount = len(rows)
-
-                    for row in rows:
-                        csvWriter.writerow(row)
-
-                    msg = ("Successfully exported %i rows to a file\r\n%s"
-                           % (rowCount, (QDir.toNativeSeparators(dbFile[0]))))
+                    reminders = self.session.query(Reminder).all()
+                    categories = self.session.query(Category).all()
+                    for reminder in reminders:
+                        csvWriter.writerow('Reminder', reminder.reminder_id, reminder.due, reminder.complete, reminder.note)
+                    for category in categories:
+                        csvWriter.writerow('Category', category.category_id, category.category_name)
+                    msg = ("Successfully exported %i reminders and %i categories to a file\r\n%s"
+                           % (len(reminders), len(categories), (QDir.toNativeSeparators(dbFile[0]))))
                     QMessageBox.information(self, __appname__, msg)
             except Exception as xportexc:
                 QMessageBox.critical(self, __appname__, "Error exporting file, error is\r\n" + str(xportexc))
@@ -283,12 +297,12 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         dlg.exec_()
 
     def set_minimize_behavior(self, state):
-        print('The minimize state is %s' % state)
+        self.logger('The minimize state is %s' % state)
         self.minimizeToTray = state
         self.settings.setValue("minimizeToTray",  bool2str(state))
 
     def show_hide_complete(self, state):
-        print('The show/hide complete state is %s' % state)
+        self.logger('The show/hide complete state is %s' % state)
         self.settings.setValue("showcompleted",  bool2str(state))
         self.showcompleted = state
         self.refresh_table(showcompleted=state)
@@ -305,7 +319,6 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         dlg.exec_()
 
     def exit_action_triggered(self):
-        print('Goodbye')
         self.close()
 
     # Override closeEvent, to intercept the window closing event
@@ -331,13 +344,11 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
 
 class Worker(QObject):
-    reminderisdue = Signal(str, str, str, str)
+    reminderisdue = Signal(str, str, str)
 
     @Slot()
     def check_reminders_loop(self):
-        dbPath = os.path.join(appDataPath, "reminders.db")
-        self.dbConn = sqlite3.connect(dbPath)
-        self.dbCursor = self.dbConn.cursor()
+        self.session = Session()
         # This timer just repeats every <interval> ms
         interval = 5000
         timer = QTimer(self)
@@ -345,28 +356,15 @@ class Worker(QObject):
         timer.start(interval)
 
     def query_db(self):
-        print('query db')
-        self.dbCursor.execute("SELECT unique_hash, datetime(due), category, reminder FROM"
-                              " reminderstable where datetime(due) <= DATETIME('now', 'utc')"
-                              " AND notified = 0")
-        allRows = self.dbCursor.fetchall()
-        print('allrows: %s' % allRows)
-        for row in allRows:
+        reminders = self.session.query(Reminder).filter(Reminder.complete == False).filter(func.DATETIME(Reminder.due) <= func.DATETIME('now', 'utc')).all()
+        logger.debug('Got %i reminders due...' % len(reminders))
+        for reminder in reminders:
             import time
             time.sleep(1)
-            # print(row)
-            # Set notified = 1
-            unique_hash = row[0]
-            try:
-                self.dbCursor.execute("UPDATE reminderstable SET notified = 1 WHERE unique_hash = ?",
-                                      (unique_hash, ))
-                print('Set notified 1 for hash %s' % unique_hash)
-                self.dbConn.commit()
-                print('committed')
-            except Exception as dbexc:
-                print('Exception: %s' % str(dbexc))
-            finally:
-                self.reminderisdue.emit(*row)
+            reminder.complete = True
+            self.session.commit()
+            categories = [category.category_name for category in reminder.categories]
+            self.reminderisdue.emit(reminder.due, categories, reminder.note)
 
 
 def main():
