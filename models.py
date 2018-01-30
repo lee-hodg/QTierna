@@ -1,12 +1,11 @@
-import hashlib
 import pytz
 from datetime import datetime
 from utils import smart_truncate
 # SQLALCHEMY
-from sqlalchemy import Column, Integer, String, Boolean, Table, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, Table, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.ext.hybrid import hybrid_property
+# from sqlalchemy.ext.hybrid import hybrid_property
 Base = declarative_base()
 
 # Notes:
@@ -42,7 +41,7 @@ class Category(Base):
     __tablename__ = 'categories'
 
     category_id = Column(Integer, primary_key=True)
-    category_name = Column(String, nullable=False)
+    category_name = Column(String, nullable=False, unique=True)
     reminders = relationship('Reminder', secondary=association_table,
                              back_populates='categories')
 
@@ -52,27 +51,28 @@ class Category(Base):
 
 class Reminder(Base):
     __tablename__ = 'reminders'
+    __table_args__ = (UniqueConstraint('due', 'note', name='_due_note_uc'),)
 
     reminder_id = Column(Integer, primary_key=True)
     due = Column(String, nullable=False)
     note = Column(String, nullable=False)
-    complete = Column(Boolean, nullable=False)
+    complete = Column(Boolean, nullable=False, default=False)
     categories = relationship('Category', secondary=association_table, back_populates='reminders')
 
     def _get_utc_aware_datetime(self, date_format='%Y-%m-%d %H:%M'):
         return pytz.utc.localize(datetime.strptime(self.due, date_format))
 
-    @hybrid_property
-    def unique_hash(self):
-        '''
-        Use hash of the due date and note
-        of row to index it rather than where and and and thing
-        which would be inefficient
-        '''
-        m = hashlib.md5()
-        m.update(self.due.encode('utf8'))
-        m.update(self.note.encode('utf8'))
-        return m.hexdigest()
+    # @hybrid_property
+    # def unique_hash(self):
+    #     '''
+    #     Use hash of the due date and note
+    #     of row to index it rather than where and and and thing
+    #     which would be inefficient
+    #     '''
+    #     m = hashlib.md5()
+    #     m.update(self.due.encode('utf8'))
+    #     m.update(self.note.encode('utf8'))
+    #     return m.hexdigest()
 
     def __repr__(self):
         return '<Reminder due %s note %s>' % (self.due, smart_truncate(self.note, 100))

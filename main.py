@@ -16,11 +16,11 @@ import sys
 import pytz
 # import re
 import os
-import logging
 import csv
 
 Base = declarative_base()
 
+from setup_logging import logger
 
 from ui_files import mainWindow, prefDialog, aboutDialog
 
@@ -40,12 +40,6 @@ if not os.path.exists(appDataPath):
 db_path = os.path.join(appDataPath, "reminders.db")
 engine = create_engine('sqlite:///%s' % db_path, echo=False)
 Session = sessionmaker(bind=engine)
-
-logging.basicConfig(filename=os.path.join(appDataPath,  "%s.log" % __appname__),
-                    level=logging.DEBUG,
-                    format="%(asctime)-15s: %(name)-18s - %(levelname)-8s - %(module)-15s - %(funcName)-20s - %(lineno)-6d - %(message)s")
-logger = logging.getLogger(name=__file__)
-logger.addHandler(logging.StreamHandler())
 
 
 class AboutDialog(QDialog, aboutDialog.Ui_aboutDialog):

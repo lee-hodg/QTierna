@@ -1,10 +1,11 @@
-import hashlib
 from ui_files import addDialog
-from utils import get_utc_now, dt2str, localstr2utc, utcstr2local, take_first
+from utils import get_utc_now, dt2str, localstr2utc, utcstr2local
 from PySide import QtCore, QtGui
-from functools import partial
+# from functools import partial
 from models import Reminder, Category
-
+from cat_dlg import CatDialog
+from sqlalchemy import exc
+from setup_logging import logger
 
 class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
 
@@ -21,45 +22,44 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
         self.time_zone = time_zone
         # Do not allow selection of past dates
         self.addDlgCalendarWidget.setMinimumDate(QtCore.QDate.currentDate())
-        if existing_reminder is not None:
-            # Set date
-            local_due = utcstr2local(existing_reminder.due)
-            self.addDlgCalendarWidget.selectedDate(QtCore.QDate(local_due.year, local_due.month, local_due.day))
-            # Set time
-            self.addDlgTimeEditWidget.setTime(QtCore.QTime(local_due.hours, local_due.minutes))
-            # Set category
-            self.addDlgCatComboBox.setCurrentIndex(self.addDlgCatComboBox.findText(existing_reminder.category))
-            # Set note
-            self.addDlgTextEdit.setText(QtCore.QString(existing_reminder.note))
-        else:
-            # Set time to now
-            self.addDlgTimeEdit.setTime(QtCore.QTime.currentTime())
+
+        # Set a Reminder instance associated with the dialog
+        self.reminder = existing_reminder
+        if self.reminder is None:
+            utc_now_str = dt2str(get_utc_now())
+            self.reminder = Reminder(due=utc_now_str)
+        self._init_widgets()
 
         # Capture the Save for validation
         # Tell the save slot if we are editing or not (just a way of passing extra param)
-        if existing_reminder is not None:
-            # def partial(func, arg)
-            #     def callme():
-            #         return func(arg)
-            #     return callme
-            save_slot = partial(self.save, edit=True)
-        else:
-            save_slot = self.save
-        self.addDlgButtonBox.accepted.connect(save_slot)
+        # if existing_reminder is not None:
+        #     # def partial(func, arg)
+        #     #     def callme():
+        #     #         return func(arg)
+        #     #     return callme
+        #     save_slot = partial(self.save, edit=True)
+        # else:
+        #     save_slot = self.save
+        self.addDlgButtonBox.accepted.connect(self.save)
 
-    def _get_all_categories(self):
-        return self.session.Query(Category).all()
+        # Wire up the categories push button
+        self.addDlgCatpushButton.clicked.connect(self.launch_categories)
 
-    def get_unique_hash(self, due, note):
-        '''
-        Use hash of the due date and note
-        of row to index it rather than where and and and thing
-        which would be inefficient
-        '''
-        m = hashlib.md5()
-        m.update(due.encode('utf8'))
-        m.update(note.encode('utf8'))
-        return m.hexdigest()
+    def launch_categories(self):
+        # Launch cats dialog
+
+        # If save we need to get the list of categories
+
+        # We need to ensure this list of categories gets reflected in db
+
+        # We need to get which ones are checked, store them somewhere on
+        # this add dialog instance, and then when we save this instance
+        # add them to reminder model
+        dlg = CatDialog(self.session, self.reminder, parent=self)
+        if dlg.exec_():
+            category_names = [item.text() for item in dlg.catListWidget.selectedItems()]
+            category_instances = self.session.query(Category).filter(Category.category_name.in_(category_names)).all()
+            self.reminder.categories = category_instances
 
     def accept(self):
         '''
@@ -70,47 +70,53 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
         Without this the dlg would close instantly
         regardless of validation etc
         '''
-        None
+        logger.debug('Accept caught do nothing...')
 
-    def _get_or_create_reminder(self):
+    def _init_widgets(self):
         '''
-        Build a dict representing a reminder
+        Update the widgets according to self.reminder instance of Reminder
         '''
-        created = False
+        # Set date
+        local_due = utcstr2local(self.reminder.due, self.time_zone)
+        self.addDlgCalendarWidget.setSelectedDate(QtCore.QDate(local_due.year, local_due.month, local_due.day))
+        # Set time
+        self.addDlgTimeEdit.setTime(QtCore.QTime(local_due.time().hour, local_due.time().minute))
+        # Set note
+        if self.reminder.note:
+            self.addDlgTextEdit.setText(unicode(self.reminder.note))
+
+    def _update_reminder(self):
+        '''
+        Update the Reminder instance we have at self.reminder
+        '''
         date_ = self.addDlgCalendarWidget.selectedDate().toString("yyyy-MM-dd")
         time_ = self.addDlgTimeEdit.time().toString('HH:mm')
         due_local_str = ' '.join([date_, time_])
         due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
-        note = self.addDlgTextEdit.toPlainText()
-        unique_hash = self.get_unique_hash(due_utc_str, note)
-        # Doesn't seem very efficient, but cant query on hybrid property unless
-        # expression, however I can't do hashing with sql builtins
-        reminder = take_first(filter(lambda x: x.unique_hash == unique_hash, self.session.query(Reminder).all()))
-        if not reminder:
-            reminder = Reminder(due=due_utc_str, note=note, complete=False)
-            created = True
-        # Get category names from multi select categories widget, filter
-        # Category model by these names. Set .categories on reminder too
-        return reminder, created
+        self.reminder.due = due_utc_str
+        self.reminder.note = self.addDlgTextEdit.toPlainText()
 
     def save(self, edit=False):
-        reminder, created = self._get_or_create_reminder()
+        # We update the tempory reminder we have stored at self.reminder
+        self.reminder = self.update_reminder()
         if self.is_valid(reminder):
             try:
-                print reminder, created
-                self.session.add(reminder)
+                self.session.add(self.reminder)
                 self.session.commit()
-            except Exception as session_exc:
-                QtGui.QMessageBox.warning(self, "Already exists warning", unicode(session_exc))
+            except exc.IntegrityError as int_exc:
+                self.session.rollback()
+                print(int_exc)
+                QtGui.QMessageBox.warning(self, "Already exists warning", unicode('This reminder already exists'))
                 return
-        else:
-            self.session.rollback()
-            return
-        QtGui.QDialog.accept(self)
+            else:
+                # All good, accept
+                QtGui.QDialog.accept(self)
 
     def is_valid(self, reminder):
         '''
         Form level validation
+
+        Change this to operate on dlg fields directly not reminder yet
         '''
         # Dates in future only
         if reminder._get_utc_aware_datetime() <= get_utc_now():
