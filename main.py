@@ -6,13 +6,14 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 from datetime import datetime
 from tzlocal import get_localzone
-from utils import str2bool, bool2str, dt2str, utcstr2local, smart_truncate, localstr2utc
+from utils import str2bool, bool2str, dt2str, utcstr2local, smart_truncate #  , localstr2utc
 from models import Reminder, Category
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import sys
+import arrow
 import pytz
 # import re
 import os
@@ -90,9 +91,17 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         Base.metadata.create_all(engine)
 
         self.notified_color = QColor(115, 235, 174, 127)
+        self.soon_color = QColor(255, 0, 0, 127)
 
         # Stop table being editable by user
         self.mainTableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        # Col Widths
+        total_width = self.mainTableWidget.width()
+        self.mainTableWidget.setColumnWidth(0, total_width/10.0)
+        self.mainTableWidget.setColumnWidth(1, total_width/10.0)
+        self.mainTableWidget.setColumnWidth(2, (total_width/10.0)*8)
+        self.mainTableWidget.setColumnWidth(3, 0)
+        self.mainTableWidget.setColumnHidden(3, True)
 
         self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "QTierna", "QTierna")
         self.minimizeToTray = str2bool(self.settings.value("minimizeToTray", True))
@@ -192,7 +201,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         logger.debug('All categories %s' % categories)
         # Find top-level category item
         root = self.mainTreeWidget.topLevelItem(0)
-        root_parent = root.parent()
+        # root_parent = root.parent()
         root.setExpanded(True)
         for category in categories:
             QTreeWidgetItem(root, [category, ])
@@ -218,12 +227,25 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         for inx, reminder in enumerate(reminders):
             # UTC in db
             utc_datetime_str = reminder.due
-            local_datetime_str = dt2str(utcstr2local(utc_datetime_str, self.time_zone))
+            # local_datetime_str = dt2str(utcstr2local(utc_datetime_str, self.time_zone))
             categories = ', '.join([category.category_name for category in reminder.categories])
+            # We can get beautiful human times with arrow
+            arrow_utc_dt = arrow.get(utc_datetime_str, 'YYYY-MM-DD HH')
+            human_due = arrow_utc_dt.humanize()
+            logger.debug('Reminder had utc due %s and humanize gave %s. arrow utc now %s' % (utc_datetime_str, human_due, arrow.utcnow()))
+            # This would be nice, but I'd lose the exact dt, which would
+            # make it hard when deleting/editing these rows. Could I store
+            # it on hidden column maybe?
             self.mainTableWidget.insertRow(inx)
-            self.mainTableWidget.setItem(inx, 0, QTableWidgetItem(local_datetime_str))
+            self.mainTableWidget.setItem(inx, 0, QTableWidgetItem(human_due))
+            hours_before = ((arrow_utc_dt - arrow.utcnow()).total_seconds())/3600.0
+            if hours_before <= 24 and hours_before > 0:
+                # Highlight
+                self.mainTableWidget.item(inx, 0).setBackground(self.soon_color)
+
             self.mainTableWidget.setItem(inx, 1, QTableWidgetItem(categories))
             self.mainTableWidget.setItem(inx, 2, QTableWidgetItem(smart_truncate(reminder.note)))
+            self.mainTableWidget.setItem(inx, 3, QTableWidgetItem(utc_datetime_str))
 
             if reminder.complete:
                 # Already notified
@@ -244,8 +266,9 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             selected_rows = [index.row() for index in indices]
             if len(selected_rows) == 1:
                 selected_row = selected_rows[0]
-                due_local_str = self.mainTableWidget.item(selected_row, 0).text()
-                due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
+                # due_local_str = self.mainTableWidget.item(selected_row, 0).text()
+                # due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
+                due_utc_str = self.mainTableWidget.item(selected_row, 3).text()
                 note = self.mainTableWidget.item(selected_row, 2).text()
                 reminder = self.session.query(Reminder).filter(Reminder.due == due_utc_str,
                                                                Reminder.note == note).first()
@@ -278,8 +301,9 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             # sorted is important so we delete last in last first
             # and don't mess up the indexing of iterator
             for row in sorted(selected_rows, reverse=True):
-                due_local_str = self.mainTableWidget.item(row, 0).text()
-                due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
+                # due_local_str = self.mainTableWidget.item(row, 0).text()
+                # due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
+                due_utc_str = self.mainTableWidget.item(row, 3).text()
                 note = self.mainTableWidget.item(row, 2).text()
                 reminder = self.session.query(Reminder).filter(Reminder.due == due_utc_str,
                                                                Reminder.note == note).first()
@@ -428,7 +452,7 @@ class Worker(QObject):
         timer.start(interval)
 
     def query_db(self):
-        reminders = self.session.query(Reminder).filter(Reminder.complete == False).filter(func.DATETIME(Reminder.due) <= func.DATETIME('now', 'utc')).all()
+        reminders = self.session.query(Reminder).filter(Reminder.complete == False).filter(func.DATETIME(Reminder.due, 'utc') <= func.DATETIME('now', 'utc')).all()
         logger.debug('Got %i reminders due...' % len(reminders))
         for reminder in reminders:
             import time
