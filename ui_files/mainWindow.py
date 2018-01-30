@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'mainWindow_ver1.ui'
+# Form implementation generated from reading ui file 'mainWindow_ver2.ui'
 #
-# Created: Sun Jan 21 23:18:31 2018
+# Created: Mon Jan 29 21:49:29 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,15 +12,31 @@ from PySide import QtCore, QtGui
 class Ui_mainWindow(object):
     def setupUi(self, mainWindow):
         mainWindow.setObjectName("mainWindow")
-        mainWindow.resize(800, 534)
+        mainWindow.resize(987, 789)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(":/icons/icons/alarm-clock.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         mainWindow.setWindowIcon(icon)
         mainWindow.setWindowOpacity(0.99)
         self.centralwidget = QtGui.QWidget(mainWindow)
         self.centralwidget.setObjectName("centralwidget")
+        self.gridLayout = QtGui.QGridLayout(self.centralwidget)
+        self.gridLayout.setObjectName("gridLayout")
+        self.horizontalLayout_2 = QtGui.QHBoxLayout()
+        self.horizontalLayout_2.setSizeConstraint(QtGui.QLayout.SetMinimumSize)
+        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
+        self.mainTreeWidget = QtGui.QTreeWidget(self.centralwidget)
+        self.mainTreeWidget.setMinimumSize(QtCore.QSize(200, 0))
+        self.mainTreeWidget.setHeaderHidden(True)
+        self.mainTreeWidget.setObjectName("mainTreeWidget")
+        item_0 = QtGui.QTreeWidgetItem(self.mainTreeWidget)
+        font = QtGui.QFont()
+        font.setWeight(75)
+        font.setBold(True)
+        item_1 = QtGui.QTreeWidgetItem(item_0)
+        item_1 = QtGui.QTreeWidgetItem(item_0)
+        item_1 = QtGui.QTreeWidgetItem(item_0)
+        self.horizontalLayout_2.addWidget(self.mainTreeWidget)
         self.mainTableWidget = QtGui.QTableWidget(self.centralwidget)
-        self.mainTableWidget.setGeometry(QtCore.QRect(20, 10, 761, 441))
         self.mainTableWidget.setMinimumSize(QtCore.QSize(761, 0))
         self.mainTableWidget.setStyleSheet("QTableWidget{\n"
 "    background-color: #FFF;\n"
@@ -28,7 +44,7 @@ class Ui_mainWindow(object):
 "}")
         self.mainTableWidget.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.mainTableWidget.setAlternatingRowColors(True)
-        self.mainTableWidget.setSelectionMode(QtGui.QAbstractItemView.ContiguousSelection)
+        self.mainTableWidget.setSelectionMode(QtGui.QAbstractItemView.MultiSelection)
         self.mainTableWidget.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         self.mainTableWidget.setObjectName("mainTableWidget")
         self.mainTableWidget.setColumnCount(3)
@@ -41,9 +57,11 @@ class Ui_mainWindow(object):
         self.mainTableWidget.setHorizontalHeaderItem(2, item)
         self.mainTableWidget.horizontalHeader().setStretchLastSection(True)
         self.mainTableWidget.verticalHeader().setStretchLastSection(False)
+        self.horizontalLayout_2.addWidget(self.mainTableWidget)
+        self.gridLayout.addLayout(self.horizontalLayout_2, 0, 0, 1, 1)
         mainWindow.setCentralWidget(self.centralwidget)
         self.mainMenubar = QtGui.QMenuBar(mainWindow)
-        self.mainMenubar.setGeometry(QtCore.QRect(0, 0, 800, 25))
+        self.mainMenubar.setGeometry(QtCore.QRect(0, 0, 987, 25))
         self.mainMenubar.setObjectName("mainMenubar")
         self.menuFile = QtGui.QMenu(self.mainMenubar)
         self.menuFile.setObjectName("menuFile")
@@ -53,7 +71,6 @@ class Ui_mainWindow(object):
         self.menuReminder.setObjectName("menuReminder")
         mainWindow.setMenuBar(self.mainMenubar)
         self.toolBar = QtGui.QToolBar(mainWindow)
-        self.toolBar.setStatusTip("")
         self.toolBar.setStyleSheet("QToolBar{\n"
 "    background-color: rgb(140, 250, 255);\n"
 "     float: right;\n"
@@ -67,6 +84,9 @@ class Ui_mainWindow(object):
         self.toolBar.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.toolBar.setObjectName("toolBar")
         mainWindow.addToolBar(QtCore.Qt.TopToolBarArea, self.toolBar)
+        self.statusBar = QtGui.QStatusBar(mainWindow)
+        self.statusBar.setObjectName("statusBar")
+        mainWindow.setStatusBar(self.statusBar)
         self.actionImport_Data = QtGui.QAction(mainWindow)
         icon1 = QtGui.QIcon()
         icon1.addPixmap(QtGui.QPixmap(":/icons/icons/import_white.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -135,6 +155,15 @@ class Ui_mainWindow(object):
 
     def retranslateUi(self, mainWindow):
         mainWindow.setWindowTitle(QtGui.QApplication.translate("mainWindow", "QTierna", None, QtGui.QApplication.UnicodeUTF8))
+        self.mainTreeWidget.setStatusTip(QtGui.QApplication.translate("mainWindow", "Filter by category", None, QtGui.QApplication.UnicodeUTF8))
+        self.mainTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("mainWindow", "category", None, QtGui.QApplication.UnicodeUTF8))
+        __sortingEnabled = self.mainTreeWidget.isSortingEnabled()
+        self.mainTreeWidget.setSortingEnabled(False)
+        self.mainTreeWidget.topLevelItem(0).setText(0, QtGui.QApplication.translate("mainWindow", "Categories", None, QtGui.QApplication.UnicodeUTF8))
+        self.mainTreeWidget.topLevelItem(0).child(0).setText(0, QtGui.QApplication.translate("mainWindow", "All", None, QtGui.QApplication.UnicodeUTF8))
+        self.mainTreeWidget.topLevelItem(0).child(1).setText(0, QtGui.QApplication.translate("mainWindow", "Complete", None, QtGui.QApplication.UnicodeUTF8))
+        self.mainTreeWidget.topLevelItem(0).child(2).setText(0, QtGui.QApplication.translate("mainWindow", "Uncategorized", None, QtGui.QApplication.UnicodeUTF8))
+        self.mainTreeWidget.setSortingEnabled(__sortingEnabled)
         self.mainTableWidget.horizontalHeaderItem(0).setText(QtGui.QApplication.translate("mainWindow", "Due", None, QtGui.QApplication.UnicodeUTF8))
         self.mainTableWidget.horizontalHeaderItem(1).setText(QtGui.QApplication.translate("mainWindow", "Category", None, QtGui.QApplication.UnicodeUTF8))
         self.mainTableWidget.horizontalHeaderItem(2).setText(QtGui.QApplication.translate("mainWindow", "Reminder", None, QtGui.QApplication.UnicodeUTF8))
@@ -144,19 +173,25 @@ class Ui_mainWindow(object):
         self.toolBar.setWindowTitle(QtGui.QApplication.translate("mainWindow", "toolBar", None, QtGui.QApplication.UnicodeUTF8))
         self.toolBar.setToolTip(QtGui.QApplication.translate("mainWindow", "Edit Reminder", None, QtGui.QApplication.UnicodeUTF8))
         self.actionImport_Data.setText(QtGui.QApplication.translate("mainWindow", "Import Data", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionImport_Data.setStatusTip(QtGui.QApplication.translate("mainWindow", "Import Reminders", None, QtGui.QApplication.UnicodeUTF8))
         self.actionImport_Data.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+I", None, QtGui.QApplication.UnicodeUTF8))
         self.actionExport_Data.setText(QtGui.QApplication.translate("mainWindow", "Export Data", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionExport_Data.setStatusTip(QtGui.QApplication.translate("mainWindow", "Export Reminders", None, QtGui.QApplication.UnicodeUTF8))
         self.actionExport_Data.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+E", None, QtGui.QApplication.UnicodeUTF8))
         self.actionExit.setText(QtGui.QApplication.translate("mainWindow", "Exit", None, QtGui.QApplication.UnicodeUTF8))
         self.actionExit_2.setText(QtGui.QApplication.translate("mainWindow", "Exit", None, QtGui.QApplication.UnicodeUTF8))
         self.actionAdd_Reminder.setText(QtGui.QApplication.translate("mainWindow", "Add Reminder", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionAdd_Reminder.setStatusTip(QtGui.QApplication.translate("mainWindow", "Add Reminder", None, QtGui.QApplication.UnicodeUTF8))
         self.actionAdd_Reminder.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+A", None, QtGui.QApplication.UnicodeUTF8))
         self.actionRemove_Reminder.setText(QtGui.QApplication.translate("mainWindow", "Delete Reminder", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionRemove_Reminder.setStatusTip(QtGui.QApplication.translate("mainWindow", "Delete selected reminders", None, QtGui.QApplication.UnicodeUTF8))
         self.actionRemove_Reminder.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+D", None, QtGui.QApplication.UnicodeUTF8))
         self.actionHelp.setText(QtGui.QApplication.translate("mainWindow", "Help", None, QtGui.QApplication.UnicodeUTF8))
         self.actionAbout.setText(QtGui.QApplication.translate("mainWindow", "About", None, QtGui.QApplication.UnicodeUTF8))
         self.actionPreferences.setText(QtGui.QApplication.translate("mainWindow", "Preferences", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionPreferences.setStatusTip(QtGui.QApplication.translate("mainWindow", "Configure settings", None, QtGui.QApplication.UnicodeUTF8))
         self.actionEdit_Reminder.setText(QtGui.QApplication.translate("mainWindow", "Edit Reminder", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionEdit_Reminder.setStatusTip(QtGui.QApplication.translate("mainWindow", "Edit selected reminder", None, QtGui.QApplication.UnicodeUTF8))
         self.actionEdit_Reminder.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+E", None, QtGui.QApplication.UnicodeUTF8))
 
 import icons_rc
