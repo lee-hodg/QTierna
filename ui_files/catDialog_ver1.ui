@@ -46,7 +46,7 @@
         <enum>Qt::ScrollBarAlwaysOff</enum>
        </property>
        <property name="selectionMode">
-        <enum>QAbstractItemView::MultiSelection</enum>
+        <enum>QAbstractItemView::NoSelection</enum>
        </property>
       </widget>
      </item>
