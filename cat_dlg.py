@@ -63,14 +63,14 @@ class CatDialog(QtGui.QDialog, catDialog.Ui_catDialog):
 
     def disableButton(self):
         '''Only enable add cat button when category above min length'''
-        if len(self.catLineEdit.text()) > 0 and len(self.catLineEdit.text()) <= 50:
+        if len(self.catLineEdit.text().strip()) > 0 and len(self.catLineEdit.text().strip()) <= 50:
             self.catAddPushButton.setEnabled(True)
         else:
             self.catAddPushButton.setEnabled(False)
 
     def add_cat_btn_pressed(self):
-        category_name = self.catLineEdit.text()
-        if category_name.lower() in ['all', 'complete', 'uncategorized', 'categories', 'category']:
+        category_name = self.catLineEdit.text().strip()
+        if category_name.lower().strip() in ['all', 'complete', 'uncategorized', 'categories', 'category']:
             QtGui.QMessageBox.warning(self, "Reserved warning", unicode("Choose a different name"))
             return
 
