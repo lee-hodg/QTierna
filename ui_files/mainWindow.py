@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainWindow_ver2.ui'
 #
-# Created: Mon Jan 29 21:49:29 2018
+# Created: Mon Jan 29 23:33:44 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -25,6 +25,11 @@ class Ui_mainWindow(object):
         self.horizontalLayout_2.setSizeConstraint(QtGui.QLayout.SetMinimumSize)
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         self.mainTreeWidget = QtGui.QTreeWidget(self.centralwidget)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.mainTreeWidget.sizePolicy().hasHeightForWidth())
+        self.mainTreeWidget.setSizePolicy(sizePolicy)
         self.mainTreeWidget.setMinimumSize(QtCore.QSize(200, 0))
         self.mainTreeWidget.setHeaderHidden(True)
         self.mainTreeWidget.setObjectName("mainTreeWidget")
