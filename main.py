@@ -168,7 +168,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         # refresh_table will have to take some keywords
         # show_complete=False, category=None
         self.refresh_tree()
-        self.mainTreeWidget.itemSelectionChanged.connect(self.change_category)
+        self.mainTreeWidget.itemSelectionChanged.connect(self.refresh_table)
 
         self.refresh_table()
 
@@ -188,41 +188,6 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             if hours_before <= 24 and hours_before > 0:
                 # Highlight
                 self.mainTableWidget.item(indx, 0).setBackground(self.soon_color)
-
-    def change_category(self):
-        cat = self.mainTreeWidget.currentItem()
-        category_name = cat.text(self.mainTreeWidget.currentColumn())
-        if cat.parent():
-            logger.debug('Category_name: %s' % category_name)
-            root = self.mainTreeWidget.topLevelItem(0)
-            indx = root.indexOfChild(cat)
-            logger.debug('Index is %s' % indx)
-            if indx == 0 and cat.text(0) == 'All':
-                # Selected All
-                self.refresh_table()
-            elif indx == 1 and cat.text(0) == 'Complete':
-                # all completed
-                self.refresh_table(completed=True, reverse_dates=True)
-            elif indx == 2 and cat.text(0) == 'Uncategorized':
-                self.refresh_table(uncategorized=True)
-            else:
-                self.refresh_table(category=category_name)
-        else:
-            # They clicked Categories top-level, just show all noncomplete
-            self.refresh_table()
-
-        # Set the row coloring according to
-        if cat.text(0) == 'Complete':
-                # Could just directly update stylesheet on table,
-                # but using dynamic properties and [complete=true]
-                # targeting in the style sheet is a little nicer
-                self.mainTableWidget.setProperty('complete', True)
-                self.mainTableWidget.style().unpolish(self.mainTableWidget)
-                self.mainTableWidget.style().polish(self.mainTableWidget)
-        else:
-                self.mainTableWidget.setProperty('complete', False)
-                self.mainTableWidget.style().unpolish(self.mainTableWidget)
-                self.mainTableWidget.style().polish(self.mainTableWidget)
 
     def _color_row(self, rowidx, color):
         '''
@@ -246,18 +211,33 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         # logger.debug('Root: %s' % root)
         # logger.debug('Root parent: %s' % root_parent)
 
-    def refresh_table(self, uncategorized=False, completed=False, category=None, reverse_dates=False):
+    def refresh_table(self):
         """Refreshes (or initially loads) the table according to db"""
-        logger.debug('refresh table with uncategorized %s completed %s and category %s' % (uncategorized, completed, category))
-        if uncategorized:
-            reminders = self.session.query(Reminder).filter(Reminder.complete == completed).filter(~Reminder.categories.any()).all()
-        elif category:
-            reminders = self.session.query(Reminder).filter(Reminder.complete == completed).filter(Reminder.categories.any(Category.category_name == category)).all()
+        reverse_dates = False
+        category_name = None
+        cat = self.mainTreeWidget.currentItem()
+        if cat:
+            category_name = cat.text(self.mainTreeWidget.currentColumn())
+        # if cat.parent():
+        root = self.mainTreeWidget.topLevelItem(0)
+        indx = root.indexOfChild(cat)
+        logger.debug('Refreshing table with category %s and Index is %s' % (category_name, indx))
+        if indx == 0 and category_name == 'All':
+            # Selected All
+            reminders = self.session.query(Reminder).filter(Reminder.complete == False).all()
+        elif indx == 1 and category_name == 'Complete':
+            # all completed
+            reverse_dates = True
+            reminders = self.session.query(Reminder).filter(Reminder.complete == True).all()
+        elif indx == 2 and category_name == 'Uncategorized':
+            reminders = self.session.query(Reminder).filter(Reminder.complete == False).filter(~Reminder.categories.any()).all()
+        elif indx > 2 and category_name:
+            reminders = self.session.query(Reminder).filter(Reminder.complete == False).filter(Reminder.categories.any(Category.category_name == category_name)).all()
         else:
-            reminders = self.session.query(Reminder).filter(Reminder.complete == completed).all()
-
+            # Nothing selected
+            reminders = self.session.query(Reminder).filter(Reminder.complete == False).all()
         logger.debug('Refreshing table with reminders %s' % reminders)
-        # Sort first on notified status and then on datetime
+
         # reminders = sorted(reminders, key=lambda reminder: (reminder.complete, datetime.strptime(reminder.due, '%Y-%m-%d %H:%M')))
         reminders = sorted(reminders, key=lambda reminder: datetime.strptime(reminder.due, '%Y-%m-%d %H:%M'), reverse=reverse_dates)
         self.mainTableWidget.setRowCount(0)  # Delete rows ready to repopulate
@@ -287,6 +267,19 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             # if reminder.complete:
             #     # Already notified
             #     self._color_row(inx, self.notified_color)
+
+        # Set the row coloring according to
+        if category_name == 'Complete':
+                # Could just directly update stylesheet on table,
+                # but using dynamic properties and [complete=true]
+                # targeting in the style sheet is a little nicer
+                self.mainTableWidget.setProperty('complete', True)
+                self.mainTableWidget.style().unpolish(self.mainTableWidget)
+                self.mainTableWidget.style().polish(self.mainTableWidget)
+        else:
+                self.mainTableWidget.setProperty('complete', False)
+                self.mainTableWidget.style().unpolish(self.mainTableWidget)
+                self.mainTableWidget.style().polish(self.mainTableWidget)
 
     def addedit_button_clicked(self):
         """Opens the add or edit reminder dialog. For edit would be same but with existing_reminder as Reminder inst"""
@@ -449,13 +442,13 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.logger('The show/hide complete state is %s' % state)
         self.settings.setValue("showcompleted",  bool2str(state))
         self.showcompleted = state
-        self.refresh_table(completed=state)
+        # self.refresh_table(completed=state)
 
     @Slot(str)
     def update_time_zone(self, time_zone):
         self.time_zone = pytz.timezone(time_zone)
         self.settings.setValue('time_zone', time_zone)
-        self.refresh_table(completed=self.showcompleted)
+        self.refresh_table()
 
     def about_action_triggered(self):
         """Opens the About dialog"""
