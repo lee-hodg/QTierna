@@ -91,6 +91,9 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
         self.notified_color = QColor(115, 235, 174, 127)
 
+        # Stop table being editable by user
+        self.mainTableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
+
         self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "QTierna", "QTierna")
         self.minimizeToTray = str2bool(self.settings.value("minimizeToTray", True))
         self.showcompleted = str2bool(self.settings.value("showcompleted", True))
@@ -141,7 +144,39 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.actionAbout.triggered.connect(self.about_action_triggered)
         self.actionExit_2.triggered.connect(self.exit_action_triggered)
 
-        self.refresh_table(self.showcompleted)
+        # Wire up clicking on categories in tree
+        # The idea is that initially table loads with all non-complete
+        # reminders, but uncategorized gives those with category,
+        # complete gives those complete, and other custom user categories
+        # show those reminders belonging to the category
+        # refresh_table will have to take some keywords
+        # show_complete=False, category=None
+        self.refresh_tree()
+        self.mainTreeWidget.itemSelectionChanged.connect(self.change_category)
+
+        self.refresh_table()
+
+    def change_category(self):
+        cat = self.mainTreeWidget.currentItem()
+        category_name = cat.text(self.mainTreeWidget.currentColumn())
+        if cat.parent():
+            logger.debug('Category_name: %s' % category_name)
+            root = self.mainTreeWidget.topLevelItem(0)
+            indx = root.indexOfChild(cat)
+            logger.debug('Index is %s' % indx)
+            if indx == 0 and cat.text(0) == 'All':
+                # Selected All
+                self.refresh_table()
+            elif indx == 1 and cat.text(0) == 'Complete':
+                # all completed
+                self.refresh_table(completed=True)
+            elif indx == 2 and cat.text(0) == 'Uncategorized':
+                self.refresh_table(uncategorized=True)
+            else:
+                self.refresh_table(category=category_name)
+        else:
+            # They clicked Categories top-level, just show all noncomplete
+            self.refresh_table()
 
     def _color_row(self, rowidx, color):
         '''
@@ -151,15 +186,34 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         for j in range(self.mainTableWidget.columnCount()):
             self.mainTableWidget.item(rowidx, j).setBackground(color)
 
-    def refresh_table(self, showcompleted=True):
-        """Refreshes (or initially loads) the table according to db"""
-        if showcompleted:
-            reminders = self.session.query(Reminder).all()
-        else:
-            reminders = self.session.query(Reminder).filter(completed=False)
+    def refresh_tree(self):
+        categories = self.session.query(Category.category_name).order_by(Category.category_name).all()
+        categories = [c[0] for c in categories]
+        logger.debug('All categories %s' % categories)
+        # Find top-level category item
+        root = self.mainTreeWidget.topLevelItem(0)
+        root_parent = root.parent()
+        root.setExpanded(True)
+        for category in categories:
+            QTreeWidgetItem(root, [category, ])
+        # root.addChild(qtwItem.setText(0, 'Nips'))
+        # logger.debug('Root: %s' % root)
+        # logger.debug('Root parent: %s' % root_parent)
 
+    def refresh_table(self, uncategorized=False, completed=False, category=None):
+        """Refreshes (or initially loads) the table according to db"""
+        logger.debug('refresh table with uncategorized %s completed %s and category %s' % (uncategorized, completed, category))
+        if uncategorized:
+            reminders = self.session.query(Reminder).filter(Reminder.complete == completed).filter(~Reminder.categories.any()).all()
+        elif category:
+            reminders = self.session.query(Reminder).filter(Reminder.complete == completed).filter(Reminder.categories.any(Category.category_name == category)).all()
+        else:
+            reminders = self.session.query(Reminder).filter(Reminder.complete == completed).all()
+
+        logger.debug('Refreshing table with reminders %s' % reminders)
         # Sort first on notified status and then on datetime
-        reminders = sorted(reminders, key=lambda reminder: (reminder.complete, datetime.strptime(reminder.due, '%Y-%m-%d %H:%M')))
+        # reminders = sorted(reminders, key=lambda reminder: (reminder.complete, datetime.strptime(reminder.due, '%Y-%m-%d %H:%M')))
+        reminders = sorted(reminders, key=lambda reminder: datetime.strptime(reminder.due, '%Y-%m-%d %H:%M'))
         self.mainTableWidget.setRowCount(0)  # Delete rows ready to repopulate
         for inx, reminder in enumerate(reminders):
             # UTC in db
@@ -323,13 +377,13 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.logger('The show/hide complete state is %s' % state)
         self.settings.setValue("showcompleted",  bool2str(state))
         self.showcompleted = state
-        self.refresh_table(showcompleted=state)
+        self.refresh_table(completed=state)
 
     @Slot(str)
     def update_time_zone(self, time_zone):
         self.time_zone = pytz.timezone(time_zone)
         self.settings.setValue('time_zone', time_zone)
-        self.refresh_table(showcompleted=self.showcompleted)
+        self.refresh_table(completed=self.showcompleted)
 
     def about_action_triggered(self):
         """Opens the About dialog"""

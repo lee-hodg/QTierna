@@ -1,5 +1,5 @@
 from ui_files import catDialog
-from PySide import QtGui, QtCore
+from PySide import QtGui
 from models import Category
 from setup_logging import logger
 from sqlalchemy import exc
@@ -70,6 +70,10 @@ class CatDialog(QtGui.QDialog, catDialog.Ui_catDialog):
 
     def add_cat_btn_pressed(self):
         category_name = self.catLineEdit.text()
+        if category_name.lower() in ['all', 'complete', 'uncategorized', 'categories', 'category']:
+            QtGui.QMessageBox.warning(self, "Reserved warning", unicode("Choose a different name"))
+            return
+
         try:
             c = Category(category_name=category_name)
             self.session.add(c)
@@ -87,12 +91,9 @@ class CatDialog(QtGui.QDialog, catDialog.Ui_catDialog):
     def delete_cats_btn_pressed(self):
         # Get all checked in listviewwidget
         # delete from db
-        checked_items = []
-        for index in range(self.catListWidget.count()):
-            if self.catListWidget.item(index).checkState() == QtCore.Qt.Checked:
-                checked_items.append(self.catListWidget.item(index).text())
-        logger.debug('Got %i categories for deletion..' % len(checked_items))
-        logger.debug('Deleting %s' % checked_items)
-        self.session.query(Category).filter(Category.category_name.in_(checked_items)).delete(synchronize_session='fetch')
+        selected_items = [item.text() for item in self.catListWidget.selectedItems()]
+        logger.debug('Got %i categories for deletion..' % len(selected_items))
+        logger.debug('Deleting %s' % selected_items)
+        self.session.query(Category).filter(Category.category_name.in_(selected_items)).delete(synchronize_session='fetch')
         self.session.commit()
         self.refresh_list()
