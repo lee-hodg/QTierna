@@ -60,30 +60,56 @@ class PrefDialog(QDialog, prefDialog.Ui_prefDialog):
 
     time_zone_changed = Signal(str)
 
-    def __init__(self, parent=None, minimize=True, showcomplete=True, time_zone=None):
+    def __init__(self, parent=None, minimize=True, time_zone=None):
         super(PrefDialog, self).__init__(parent)
         self.setupUi(self)
-        if time_zone is None:
-            time_zone = get_localzone()
-        # Populate the tz combo box with all common pytz timezones
-        for i, tz in enumerate(pytz.common_timezones):
-            self.tzComboBox.addItem(QApplication.translate("prefDialog", tz, None, QApplication.UnicodeUTF8))
-            if tz == time_zone.zone:
-                self.tzComboBox.setCurrentIndex(i)
+        self.time_zone = time_zone
+        if self.time_zone is None:
+            self.time_zone = get_localzone()
+
+        # Show current zone setting
+        self.tzLineEdit.setText(self.time_zone.zone)
 
         # Prefs for min to systray and hiding completed reminders
         self.minimizeCheckBox.setChecked(minimize)
-        self.hideCompleteCheckBox.setChecked(showcomplete)
+        # self.hideCompleteCheckBox.setChecked(showcomplete)
 
         # Signal
-        self.tzComboBox.currentIndexChanged.connect(self.handle_time_zone_changed)
+        # self.tzComboBox.currentIndexChanged.connect(self.handle_time_zone_changed)
+        self.tzLineEdit.textChanged.connect(self.update_zones_list)
+        self.tzListWidget.itemSelectionChanged.connect(self.handle_time_zone_changed)
+
+    def update_zones_list(self):
+        query = self.tzLineEdit.text().strip()
+        self.tzListWidget.clear()
+        if len(query) > 0:
+            # Populate the tz combo box with all common pytz timezones
+            def zone_filter(tzone):
+                try:
+                    region, country = tzone.split('/')
+                    if (region.lower().startswith(query.lower()) or country.lower().startswith(query.lower())
+                       or tzone.lower().startswith(query.lower())):
+                        return True
+                except:
+                    if tzone.lower().startswith(query.lower()):
+                        return True
+                return False
+            zones = filter(zone_filter, pytz.common_timezones)
+        else:
+            zones = pytz.common_timezones
+        for tz in zones:
+            item = QListWidgetItem(tz, self.tzListWidget)
+            if self.time_zone.zone == tz:
+                item.setSelected(True)
 
     def handle_time_zone_changed(self):
         '''
         So we can send our own data
         '''
-        time_zone = self.tzComboBox.currentText()
-        self.time_zone_changed.emit(time_zone)
+        if self.tzListWidget.currentItem():
+            self.time_zone = self.tzListWidget.currentItem().text()
+            logger.debug('Change tz to %s' % self.time_zone)
+            self.time_zone_changed.emit(self.time_zone)
 
 
 class Main(QMainWindow, mainWindow.Ui_mainWindow):
@@ -426,10 +452,10 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
     def preferences_action_triggered(self):
         """Fires up the Preferences dialog"""
-        dlg = PrefDialog(minimize=self.minimizeToTray, showcomplete=self.showcompleted, time_zone=self.time_zone)
+        dlg = PrefDialog(minimize=self.minimizeToTray, time_zone=self.time_zone)
         # Still need to wire up the combo timezone selection
         dlg.minimizeCheckBox.stateChanged.connect(self.set_minimize_behavior)
-        dlg.hideCompleteCheckBox.stateChanged.connect(self.show_hide_complete)
+        # dlg.hideCompleteCheckBox.stateChanged.connect(self.show_hide_complete)
         dlg.time_zone_changed.connect(self.update_time_zone)
         dlg.exec_()
 

@@ -1,7 +1,8 @@
 > Right click the row should also offer edit/remove menu
 
 > Would be nice to have timezone as a search box and first letter shows relevant chocies, rather than massive
-combo box
+combo box. This would be LineEdit with signal textChanged .connect self.updateZones slot. Updating a listwidget
+with a scrollbar...or something like that....
 
 > Add completed tickbox to add/edit dlg. 
 

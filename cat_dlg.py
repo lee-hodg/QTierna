@@ -83,6 +83,8 @@ class CatDialog(QtGui.QDialog, catDialog.Ui_catDialog):
             # item.setCheckState(QtCore.Qt.Unchecked)
             item.setSelected(True)
             self.catListWidget.sortItems()
+            # XXX Needs to send a signal for the main window to catch and update
+            # the category tree too
         except exc.IntegrityError as int_exc:
             self.session.rollback()
             logger.debug(int_exc)
