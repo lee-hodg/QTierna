@@ -231,6 +231,11 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         root = self.mainTreeWidget.topLevelItem(0)
         # root_parent = root.parent()
         root.setExpanded(True)
+        # Clear custom categories, reverse important to not mess up interator
+        # First 3 kids are mandatory, don't delete.
+        for i in reversed(range(root.childCount())):
+            if i > 2:
+                root.removeChild(root.child(i))
         for category in categories:
             QTreeWidgetItem(root, [category, ])
         # root.addChild(qtwItem.setText(0, 'Nips'))
@@ -334,8 +339,14 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
                 return
 
         dialog = AddEditDialog(self.session, self.time_zone, existing_reminder=reminder, parent=self)
+        dialog.categories_changed.connect(self.handle_categories_changed)
         if dialog.exec_():
             self.refresh_table()
+
+    @Slot()
+    def handle_categories_changed(self):
+        logger.debug('Refreshing categories tree')
+        self.refresh_tree()
 
     @Slot(str, str, str)
     def launch_reminder(self, due, categories, note):

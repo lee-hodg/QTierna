@@ -10,6 +10,10 @@ from setup_logging import logger
 
 class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
 
+    # So we can reach the main window, the cat dlg emits signal addedit catches
+    # and then the addedit emits its own signal and main catches. Chain
+    categories_changed = QtCore.Signal()
+
     def __init__(self, session, time_zone, existing_reminder=None, parent=None):
         '''
         If Adding a reminder, <reminder> will be None,
@@ -49,6 +53,10 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
         # Wire up the categories push button
         self.addDlgCatpushButton.clicked.connect(self.launch_categories)
 
+    @QtCore.Slot()
+    def handle_categories_changed(self):
+        self.categories_changed.emit()
+
     def launch_categories(self):
         # Launch cats dialog
 
@@ -60,6 +68,7 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
         # this add dialog instance, and then when we save this instance
         # add them to reminder model
         dlg = CatDialog(self.session, self.reminder, parent=self)
+        dlg.categories_changed.connect(self.handle_categories_changed)
         if dlg.exec_():
             category_names = [item.text() for item in dlg.catListWidget.selectedItems()]
             logger.debug('Selected categories were %s' % category_names)

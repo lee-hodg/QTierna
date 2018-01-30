@@ -1,14 +1,9 @@
 > Right click the row should also offer edit/remove menu
 
-> Would be nice to have timezone as a search box and first letter shows relevant chocies, rather than massive
-combo box. This would be LineEdit with signal textChanged .connect self.updateZones slot. Updating a listwidget
-with a scrollbar...or something like that....
-
-> Add completed tickbox to add/edit dlg. 
+> Right click tree widget should offer add/edit/remove category (cf mongo connections box)
 
 > Google cals with api and social auth
 
-> Remove the hide complete tasks opts from preferences as we don't need it.
 
 ISSUES
 

@@ -1,11 +1,13 @@
 from ui_files import catDialog
-from PySide import QtGui
+from PySide import QtGui, QtCore
 from models import Category
 from setup_logging import logger
 from sqlalchemy import exc
 
 
 class CatDialog(QtGui.QDialog, catDialog.Ui_catDialog):
+
+    categories_changed = QtCore.Signal()
 
     def __init__(self, session, reminder, parent=None):
         super(CatDialog, self).__init__(parent)
@@ -85,6 +87,7 @@ class CatDialog(QtGui.QDialog, catDialog.Ui_catDialog):
             self.catListWidget.sortItems()
             # XXX Needs to send a signal for the main window to catch and update
             # the category tree too
+            self.categories_changed.emit()
         except exc.IntegrityError as int_exc:
             self.session.rollback()
             logger.debug(int_exc)
@@ -98,4 +101,5 @@ class CatDialog(QtGui.QDialog, catDialog.Ui_catDialog):
         logger.debug('Deleting %s' % selected_items)
         self.session.query(Category).filter(Category.category_name.in_(selected_items)).delete(synchronize_session='fetch')
         self.session.commit()
+        self.categories_changed.emit()
         self.refresh_list()
