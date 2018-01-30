@@ -7,8 +7,7 @@ from PySide.QtGui import *
 from datetime import datetime
 from tzlocal import get_localzone
 from utils import str2bool, bool2str, dt2str, utcstr2local, smart_truncate
-from models import Reminder, Category
-from sqlalchemy.ext.declarative import declarative_base
+from models import Reminder, Category, Base
 from sqlalchemy.sql import func
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -17,9 +16,9 @@ import arrow
 import pytz
 # import re
 import os
-import csv
+import json
+import io
 
-Base = declarative_base()
 
 from setup_logging import logger
 
@@ -104,9 +103,9 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.mainTableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
         # Col Widths
         total_width = self.mainTableWidget.width()
-        self.mainTableWidget.setColumnWidth(0, total_width/10.0)
+        self.mainTableWidget.setColumnWidth(0, (total_width/10.0)*2)
         self.mainTableWidget.setColumnWidth(1, total_width/10.0)
-        self.mainTableWidget.setColumnWidth(2, (total_width/10.0)*8)
+        self.mainTableWidget.setColumnWidth(2, (total_width/10.0)*7)
         self.mainTableWidget.setColumnWidth(3, 0)
         self.mainTableWidget.setColumnHidden(3, True)
 
@@ -363,39 +362,40 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             QMessageBox.warning(self, 'Select rows', 'You must select rows for removal.')
 
     def import_action_triggered(self):
-        '''Import csv to db'''
+        '''Import json to db'''
 
         dbFile = QFileDialog.getOpenFileName(parent=None,
                                              caption="Import database to a file",
-                                             directory=".", filter="QTierna CSV (*.csv)")
-
+                                             directory=".", filter="QTierna JSON (*.json)")
         if dbFile[0]:
             try:
-                with open(dbFile[0], "rb") as csvFile:
-                    csvReader = csv.reader(csvFile, delimiter=',', quotechar="\"", quoting=csv.QUOTE_MINIMAL)
-                    self.session.query(Reminder).delete()
-                    self.session.query(Category).delete()
+                with open(dbFile[0], "r") as jsonfile:
+                    jdata = json.load(jsonfile)
+                    # Clear db
+                    Base.metadata.drop_all(engine)
+                    Base.metadata.create_all(engine)
+                    # Categories
+                    categories = jdata['categories']
+                    category_instances = []
+                    for category in categories:
+                        category_instance = Category(category_id=category['category_id'],
+                                                     category_name=category['category_name'])
+                        category_instances.append(category_instance)
+                        self.session.add(category_instance)
                     self.session.commit()
-                    for row in csvReader:
-                        table_name = row[0]
-                        if table_name == 'Category':
-                            # This is a categories row to be imported to
-                            # Category model
-                            category = Category(category_id=row[1], category_name=row[2])
-                            self.session.add(category)
-                        elif table_name == 'Reminder':
-                            reminder = Reminder(id=row[1], complete=row[2], due=row[3], note=row[4])
-                            self.session.add(reminder)
-                        elif table_name == 'association':
-                            # category_id = row[1]
-                            # reminder_id = row[2]
-                            # Figure out a smart way to rebuild this. Perhaps
-                            # manually or perhaps using an associaton Model
-                            # instead
-                            pass
-
+                    # Reminders
+                    reminders = jdata['reminders']
+                    for reminder in reminders:
+                        reminder_categories = filter(lambda c: c.category_id in reminder['category_ids'], category_instances)
+                        reminder_instance = Reminder(reminder_id=reminder['reminder_id'],
+                                                     due=reminder['due'],
+                                                     complete=reminder['complete'],
+                                                     note=reminder['note'])
+                        reminder_instance.categories = reminder_categories
+                        self.session.add(reminder_instance)
                     self.session.commit()
                     self.refresh_table()
+                    self.refresh_tree()
                     category_count = self.session.query(Category).count()
                     reminder_count = self.session.query(Reminder).count()
                     msg = ("Successfully imported %i reminders and %i categories from file\r\n%s"
@@ -408,24 +408,24 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
     def export_action_triggered(self):
         """Database export handler"""
 
-        self.dbCursor.execute("SELECT * FROM reminderstable")
+        # Build JSON
+        jdump = {'timestamp': arrow.utcnow().timestamp, 'reminders': [], 'categories': []}
+        for r in self.session.query(Reminder).all():
+            rdict = r.as_dict()
+            rdict['category_ids'] = [c.category_id for c in r.categories]
+            jdump['reminders'].append(rdict)
+        jdump['categories'] = [c.as_dict() for c in self.session.query(Category).all()]
 
         dbFile = QFileDialog.getSaveFileName(parent=None,
                                              caption="Export database to a file",
-                                             directory=".", filter="QTierna CSV (*.csv)")
+                                             directory=".", filter="QTierna JSON (*.json)")
         if dbFile[0]:
             try:
-                with open(dbFile[0], "wb") as csvFile:
-                    csvWriter = csv.writer(csvFile, delimiter=',', quotechar="\"", quoting=csv.QUOTE_MINIMAL)
-
-                    reminders = self.session.query(Reminder).all()
-                    categories = self.session.query(Category).all()
-                    for reminder in reminders:
-                        csvWriter.writerow('Reminder', reminder.reminder_id, reminder.due, reminder.complete, reminder.note)
-                    for category in categories:
-                        csvWriter.writerow('Category', category.category_id, category.category_name)
+                with io.open(dbFile[0], 'w', encoding='utf-8') as f:
+                    logger.debug(jdump)
+                    f.write(json.dumps(jdump, ensure_ascii=False))
                     msg = ("Successfully exported %i reminders and %i categories to a file\r\n%s"
-                           % (len(reminders), len(categories), (QDir.toNativeSeparators(dbFile[0]))))
+                           % (len(jdump['reminders']), len(jdump['categories']), (QDir.toNativeSeparators(dbFile[0]))))
                     QMessageBox.information(self, __appname__, msg)
             except Exception as xportexc:
                 QMessageBox.critical(self, __appname__, "Error exporting file, error is\r\n" + str(xportexc))

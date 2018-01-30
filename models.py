@@ -48,6 +48,9 @@ class Category(Base):
     def __repr__(self):
         return '<Category %s>' % self.category_name
 
+    def as_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
 
 class Reminder(Base):
     __tablename__ = 'reminders'
@@ -76,3 +79,6 @@ class Reminder(Base):
 
     def __repr__(self):
         return '<Reminder due %s note %s>' % (self.due, smart_truncate(self.note, 100))
+
+    def as_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
