@@ -97,7 +97,8 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.time_zone = pytz.timezone(self.settings.value("time_zone", get_localzone().zone))
         logger.debug('Initialized time_zone: %s' % self.time_zone)
 
-        self.actionAdd_Reminder.triggered.connect(self.add_button_clicked)
+        self.actionAdd_Reminder.triggered.connect(self.addedit_button_clicked)
+        self.actionEdit_Reminder.triggered.connect(self.addedit_button_clicked)
         self.actionRemove_Reminder.triggered.connect(self.remove_button_clicked)
 
         # I'm doing it with moveToThread in this manner, rather than
@@ -174,9 +175,32 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
                 # Already notified
                 self._color_row(inx, self.notified_color)
 
-    def add_button_clicked(self):
-        """Opens the add reminder dialog. For edit would be same but with existing_reminder as Reminder inst"""
-        dialog = AddEditDialog(self.session, self.time_zone, existing_reminder=None, parent=self)
+    def addedit_button_clicked(self):
+        """Opens the add or edit reminder dialog. For edit would be same but with existing_reminder as Reminder inst"""
+        action = self.sender()
+        logger.debug('Sender is %s' % action.objectName())
+        if action is None or not isinstance(action, QAction):
+            return None
+        reminder = None
+        if action.objectName() == 'actionEdit_Reminder':
+            # Ensure only one row selected, get item for that row
+            # get Reminder instance, pass it as existing_reminder
+            logger.debug('User wants to edit')
+            indices = self.mainTableWidget.selectionModel().selectedRows()
+            selected_rows = [index.row() for index in indices]
+            if len(selected_rows) == 1:
+                selected_row = selected_rows[0]
+                due_local_str = self.mainTableWidget.item(selected_row, 0).text()
+                due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
+                note = self.mainTableWidget.item(selected_row, 2).text()
+                reminder = self.session.query(Reminder).filter(Reminder.due == due_utc_str,
+                                                               Reminder.note == note).first()
+                logger.debug('Got reminder %s for edit.' % reminder)
+            else:
+                QMessageBox.warning(self, 'Select rows', 'You must select one row.')
+                return
+
+        dialog = AddEditDialog(self.session, self.time_zone, existing_reminder=reminder, parent=self)
         if dialog.exec_():
             self.refresh_table()
 
