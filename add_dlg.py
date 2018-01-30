@@ -7,6 +7,7 @@ from cat_dlg import CatDialog
 from sqlalchemy import exc
 from setup_logging import logger
 
+
 class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
 
     def __init__(self, session, time_zone, existing_reminder=None, parent=None):
@@ -58,6 +59,7 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
         dlg = CatDialog(self.session, self.reminder, parent=self)
         if dlg.exec_():
             category_names = [item.text() for item in dlg.catListWidget.selectedItems()]
+            logger.debug('Selected categories were %s' % category_names)
             category_instances = self.session.query(Category).filter(Category.category_name.in_(category_names)).all()
             self.reminder.categories = category_instances
 
@@ -98,14 +100,16 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
 
     def save(self, edit=False):
         # We update the tempory reminder we have stored at self.reminder
-        self.reminder = self.update_reminder()
-        if self.is_valid(reminder):
+        # Note any categories selected are already stored on self.reminder
+        # when catDlg is accepted
+        self._update_reminder()
+        if self.is_valid(self.reminder):
             try:
                 self.session.add(self.reminder)
                 self.session.commit()
             except exc.IntegrityError as int_exc:
                 self.session.rollback()
-                print(int_exc)
+                logger.error(int_exc)
                 QtGui.QMessageBox.warning(self, "Already exists warning", unicode('This reminder already exists'))
                 return
             else:
