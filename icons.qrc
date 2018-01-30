@@ -1,5 +1,6 @@
 <RCC>
   <qresource prefix="icons">
+    <file>icons/open-window-black.png</file>
     <file>icons/clock-with-white-face.png</file>
     <file>icons/edit_white.png</file>
     <file>icons/settings_white.png</file>

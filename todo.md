@@ -1,6 +1,9 @@
-> Import and export for cats/reminders/associations
-
 > Right click the row should also offer edit/remove menu
+
+> Would be nice to have timezone as a search box and first letter shows relevant chocies, rather than massive
+combo box
+
+> Add completed tickbox to add/edit dlg. 
 
 > Google cals with api and social auth
 

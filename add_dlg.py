@@ -29,6 +29,9 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
         if self.reminder is None:
             utc_now_str = dt2str(get_utc_now())
             self.reminder = Reminder(due=utc_now_str)
+        else:
+            # Enable the completed checkbox for existing reminders
+            self.addDlgCompletecheckBox.setEnabled(True)
         self._init_widgets()
 
         # Capture the Save for validation
@@ -86,6 +89,9 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
         # Set note
         if self.reminder.note:
             self.addDlgTextEdit.setText(unicode(self.reminder.note))
+        # Set completed
+        if self.reminder.complete:
+            self.addDlgCompletecheckBox.setCheckState(QtCore.Qt.Checked)
 
     def _update_reminder(self):
         '''
@@ -97,6 +103,7 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
         due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
         self.reminder.due = due_utc_str
         self.reminder.note = self.addDlgTextEdit.toPlainText()
+        self.reminder.complete = self.addDlgCompletecheckBox.isChecked()
 
     def save(self, edit=False):
         # We update the tempory reminder we have stored at self.reminder
@@ -122,8 +129,8 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
 
         Change this to operate on dlg fields directly not reminder yet
         '''
-        # Dates in future only
-        if reminder._get_utc_aware_datetime() <= get_utc_now():
+        # Dates in future only if not a completed reminder
+        if (reminder._get_utc_aware_datetime() <= get_utc_now()) and not reminder.complete:
             QtGui.QMessageBox.warning(self, "Date warning", unicode("Reminder date is in the past."))
             self.addDlgCalendarWidget.setFocus()
             return False
