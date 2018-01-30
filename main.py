@@ -6,7 +6,7 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 from datetime import datetime
 from tzlocal import get_localzone
-from utils import str2bool, bool2str, dt2str, utcstr2local, smart_truncate #  , localstr2utc
+from utils import str2bool, bool2str, dt2str, utcstr2local, smart_truncate
 from models import Reminder, Category
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
@@ -23,7 +23,7 @@ Base = declarative_base()
 
 from setup_logging import logger
 
-from ui_files import mainWindow, prefDialog, aboutDialog
+from ui_files import mainWindow, prefDialog, aboutDialog, notificationDialog
 
 from add_dlg import AddEditDialog
 
@@ -47,6 +47,13 @@ class AboutDialog(QDialog, aboutDialog.Ui_aboutDialog):
 
     def __init__(self, parent=None):
         super(AboutDialog, self).__init__(parent)
+        self.setupUi(self)
+
+
+class NotificationDialog(QDialog, notificationDialog.Ui_Dialog):
+
+    def __init__(self, parent=None):
+        super(NotificationDialog, self).__init__(parent)
         self.setupUi(self)
 
 
@@ -90,7 +97,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.session = Session()
         Base.metadata.create_all(engine)
 
-        self.notified_color = QColor(115, 235, 174, 127)
+        # self.notified_color = QColor(115, 235, 174, 127)
         self.soon_color = QColor(255, 0, 0, 127)
 
         # Stop table being editable by user
@@ -122,6 +129,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.worker.moveToThread(self.workerThread)
         self.workerThread.started.connect(self.worker.check_reminders_loop)
         self.worker.reminderisdue.connect(self.launch_reminder)
+        self.worker.refreshdates.connect(self.refreshdates)
         self.workerThread.start()
 
         # Init QSystemTrayIcon
@@ -165,6 +173,23 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
         self.refresh_table()
 
+    @Slot()
+    def refreshdates(self):
+        '''
+        Periodically update the human due date column of all rows
+        currently in the mainTableWidget
+        '''
+        for indx in xrange(self.mainTableWidget.rowCount()):
+            utc_datetime_str = self.mainTableWidget.item(indx, 3).text()
+            # Update the human date at (indx, 0) (e.g. "In 25 minutes")
+            arrow_utc_dt = arrow.get(utc_datetime_str, 'YYYY-MM-DD HH:mm')
+            human_due = arrow_utc_dt.humanize()
+            self.mainTableWidget.setItem(indx, 0, QTableWidgetItem(human_due))
+            hours_before = ((arrow_utc_dt - arrow.utcnow()).total_seconds())/3600.0
+            if hours_before <= 24 and hours_before > 0:
+                # Highlight
+                self.mainTableWidget.item(indx, 0).setBackground(self.soon_color)
+
     def change_category(self):
         cat = self.mainTreeWidget.currentItem()
         category_name = cat.text(self.mainTreeWidget.currentColumn())
@@ -178,7 +203,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
                 self.refresh_table()
             elif indx == 1 and cat.text(0) == 'Complete':
                 # all completed
-                self.refresh_table(completed=True)
+                self.refresh_table(completed=True, reverse_dates=True)
             elif indx == 2 and cat.text(0) == 'Uncategorized':
                 self.refresh_table(uncategorized=True)
             else:
@@ -186,6 +211,19 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         else:
             # They clicked Categories top-level, just show all noncomplete
             self.refresh_table()
+
+        # Set the row coloring according to
+        if cat.text(0) == 'Complete':
+                # Could just directly update stylesheet on table,
+                # but using dynamic properties and [complete=true]
+                # targeting in the style sheet is a little nicer
+                self.mainTableWidget.setProperty('complete', True)
+                self.mainTableWidget.style().unpolish(self.mainTableWidget)
+                self.mainTableWidget.style().polish(self.mainTableWidget)
+        else:
+                self.mainTableWidget.setProperty('complete', False)
+                self.mainTableWidget.style().unpolish(self.mainTableWidget)
+                self.mainTableWidget.style().polish(self.mainTableWidget)
 
     def _color_row(self, rowidx, color):
         '''
@@ -209,7 +247,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         # logger.debug('Root: %s' % root)
         # logger.debug('Root parent: %s' % root_parent)
 
-    def refresh_table(self, uncategorized=False, completed=False, category=None):
+    def refresh_table(self, uncategorized=False, completed=False, category=None, reverse_dates=False):
         """Refreshes (or initially loads) the table according to db"""
         logger.debug('refresh table with uncategorized %s completed %s and category %s' % (uncategorized, completed, category))
         if uncategorized:
@@ -222,7 +260,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         logger.debug('Refreshing table with reminders %s' % reminders)
         # Sort first on notified status and then on datetime
         # reminders = sorted(reminders, key=lambda reminder: (reminder.complete, datetime.strptime(reminder.due, '%Y-%m-%d %H:%M')))
-        reminders = sorted(reminders, key=lambda reminder: datetime.strptime(reminder.due, '%Y-%m-%d %H:%M'))
+        reminders = sorted(reminders, key=lambda reminder: datetime.strptime(reminder.due, '%Y-%m-%d %H:%M'), reverse=reverse_dates)
         self.mainTableWidget.setRowCount(0)  # Delete rows ready to repopulate
         for inx, reminder in enumerate(reminders):
             # UTC in db
@@ -230,7 +268,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             # local_datetime_str = dt2str(utcstr2local(utc_datetime_str, self.time_zone))
             categories = ', '.join([category.category_name for category in reminder.categories])
             # We can get beautiful human times with arrow
-            arrow_utc_dt = arrow.get(utc_datetime_str, 'YYYY-MM-DD HH')
+            arrow_utc_dt = arrow.get(utc_datetime_str, 'YYYY-MM-DD HH:mm')
             human_due = arrow_utc_dt.humanize()
             logger.debug('Reminder had utc due %s and humanize gave %s. arrow utc now %s' % (utc_datetime_str, human_due, arrow.utcnow()))
             # This would be nice, but I'd lose the exact dt, which would
@@ -247,9 +285,9 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             self.mainTableWidget.setItem(inx, 2, QTableWidgetItem(smart_truncate(reminder.note)))
             self.mainTableWidget.setItem(inx, 3, QTableWidgetItem(utc_datetime_str))
 
-            if reminder.complete:
-                # Already notified
-                self._color_row(inx, self.notified_color)
+            # if reminder.complete:
+            #     # Already notified
+            #     self._color_row(inx, self.notified_color)
 
     def addedit_button_clicked(self):
         """Opens the add or edit reminder dialog. For edit would be same but with existing_reminder as Reminder inst"""
@@ -290,7 +328,17 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             QSound.play("media/alarm_beep.wav")
         self.show()
         local_due = dt2str(utcstr2local(due, self.time_zone, date_format='%Y-%m-%d %H:%M'))
-        QMessageBox.information(self, "%s: %s" % (local_due, categories), note)
+        dlg = NotificationDialog()
+        htmlcontent = '<h1 font-style="normal"> Due at %s </h1>' % local_due
+        htmlcontent += '<ul>'
+        for category in categories:
+            htmlcontent += '<li><span font-style="normal">%s</span></li>' % category
+        htmlcontent += '</ul>'
+        htmlcontent += '<p>%s</p>' % note
+        dlg.notificationTextBrowser.setHtml(htmlcontent)
+        dlg.setWindowTitle(unicode('Due at %s, note: %s' % (local_due, smart_truncate(note, length=20))))
+        dlg.exec_()
+        # QMessageBox.information(self, "%s: %s" % (local_due, categories), note)
         self.refresh_table()
 
     def remove_button_clicked(self):
@@ -441,6 +489,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
 class Worker(QObject):
     reminderisdue = Signal(str, str, str)
+    refreshdates = Signal()
 
     @Slot()
     def check_reminders_loop(self):
@@ -452,6 +501,9 @@ class Worker(QObject):
         timer.start(interval)
 
     def query_db(self):
+        # Use this loop to also refresh the human dates (e.g. "In 1 hour" in
+        # table)
+        self.refreshdates.emit()
         reminders = self.session.query(Reminder).filter(Reminder.complete == False).filter(func.DATETIME(Reminder.due, 'utc') <= func.DATETIME('now', 'utc')).all()
         logger.debug('Got %i reminders due...' % len(reminders))
         for reminder in reminders:

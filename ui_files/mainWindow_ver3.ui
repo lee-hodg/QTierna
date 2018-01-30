@@ -92,6 +92,11 @@
          <string notr="true">QTableWidget{
 	background-color: #FFF;
 	alternate-background-color: rgb(140, 250, 255);
+}
+
+QTableWidget[complete=true]{
+	background-color: #FFF;
+	alternate-background-color: rgb(115, 235, 174, 127);
 }</string>
         </property>
         <property name="horizontalScrollBarPolicy">

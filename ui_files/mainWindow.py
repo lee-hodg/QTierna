@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainWindow_ver3.ui'
 #
-# Created: Tue Jan 30 00:04:21 2018
+# Created: Tue Jan 30 12:42:40 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -46,6 +46,11 @@ class Ui_mainWindow(object):
         self.mainTableWidget.setStyleSheet("QTableWidget{\n"
 "    background-color: #FFF;\n"
 "    alternate-background-color: rgb(140, 250, 255);\n"
+"}\n"
+"\n"
+"QTableWidget[complete=true]{\n"
+"    background-color: #FFF;\n"
+"    alternate-background-color: rgb(115, 235, 174, 127);\n"
 "}")
         self.mainTableWidget.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.mainTableWidget.setAlternatingRowColors(True)
