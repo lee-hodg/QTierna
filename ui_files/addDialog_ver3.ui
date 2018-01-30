@@ -34,6 +34,16 @@
      </item>
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout">
+       <item alignment="Qt::AlignHCenter">
+        <widget class="QPushButton" name="addDlgCatpushButton">
+         <property name="cursor">
+          <cursorShape>PointingHandCursor</cursorShape>
+         </property>
+         <property name="text">
+          <string>Edit Categories</string>
+         </property>
+        </widget>
+       </item>
        <item alignment="Qt::AlignRight">
         <widget class="QLabel" name="addDlgTimeLabel">
          <property name="text">
@@ -41,6 +51,9 @@
          </property>
          <property name="pixmap">
           <pixmap resource="../icons.qrc">:/icons/icons/clock-with-white-face.png</pixmap>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
          </property>
          <property name="buddy">
           <cstring>addDlgTimeEdit</cstring>
@@ -60,13 +73,6 @@
          </property>
          <property name="displayFormat">
           <string>HH:mm ap</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="addDlgCatpushButton">
-         <property name="text">
-          <string>Categories</string>
          </property>
         </widget>
        </item>

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'catDialog_ver1.ui'
 #
-# Created: Mon Jan 29 16:13:26 2018
+# Created: Mon Jan 29 20:49:28 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -33,7 +33,7 @@ class Ui_catDialog(object):
         self.verticalLayout.addLayout(self.horizontalLayout)
         self.catListWidget = QtGui.QListWidget(catDialog)
         self.catListWidget.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.catListWidget.setSelectionMode(QtGui.QAbstractItemView.NoSelection)
+        self.catListWidget.setSelectionMode(QtGui.QAbstractItemView.MultiSelection)
         self.catListWidget.setObjectName("catListWidget")
         self.verticalLayout.addWidget(self.catListWidget)
         self.catDelPushButton = QtGui.QPushButton(catDialog)

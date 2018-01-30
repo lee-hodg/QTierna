@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'addDialog_ver3.ui'
 #
-# Created: Mon Jan 29 15:48:49 2018
+# Created: Mon Jan 29 20:38:26 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -29,9 +29,14 @@ class Ui_addDialog(object):
         self.verticalLayout.addWidget(self.addDlgCalendarWidget)
         self.horizontalLayout = QtGui.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
+        self.addDlgCatpushButton = QtGui.QPushButton(addDialog)
+        self.addDlgCatpushButton.setCursor(QtCore.Qt.PointingHandCursor)
+        self.addDlgCatpushButton.setObjectName("addDlgCatpushButton")
+        self.horizontalLayout.addWidget(self.addDlgCatpushButton)
         self.addDlgTimeLabel = QtGui.QLabel(addDialog)
         self.addDlgTimeLabel.setText("")
         self.addDlgTimeLabel.setPixmap(QtGui.QPixmap(":/icons/icons/clock-with-white-face.png"))
+        self.addDlgTimeLabel.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.addDlgTimeLabel.setObjectName("addDlgTimeLabel")
         self.horizontalLayout.addWidget(self.addDlgTimeLabel)
         self.addDlgTimeEdit = QtGui.QTimeEdit(addDialog)
@@ -43,9 +48,6 @@ class Ui_addDialog(object):
         self.addDlgTimeEdit.setCursor(QtCore.Qt.PointingHandCursor)
         self.addDlgTimeEdit.setObjectName("addDlgTimeEdit")
         self.horizontalLayout.addWidget(self.addDlgTimeEdit)
-        self.addDlgCatpushButton = QtGui.QPushButton(addDialog)
-        self.addDlgCatpushButton.setObjectName("addDlgCatpushButton")
-        self.horizontalLayout.addWidget(self.addDlgCatpushButton)
         self.verticalLayout.addLayout(self.horizontalLayout)
         self.addDlgTextEdit = QtGui.QTextEdit(addDialog)
         font = QtGui.QFont()
@@ -71,8 +73,8 @@ class Ui_addDialog(object):
 
     def retranslateUi(self, addDialog):
         addDialog.setWindowTitle(QtGui.QApplication.translate("addDialog", "Add a reminder", None, QtGui.QApplication.UnicodeUTF8))
+        self.addDlgCatpushButton.setText(QtGui.QApplication.translate("addDialog", "Edit Categories", None, QtGui.QApplication.UnicodeUTF8))
         self.addDlgTimeEdit.setDisplayFormat(QtGui.QApplication.translate("addDialog", "HH:mm ap", None, QtGui.QApplication.UnicodeUTF8))
-        self.addDlgCatpushButton.setText(QtGui.QApplication.translate("addDialog", "Categories", None, QtGui.QApplication.UnicodeUTF8))
         self.addDlgTextEdit.setHtml(QtGui.QApplication.translate("addDialog", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"

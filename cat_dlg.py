@@ -25,6 +25,7 @@ class CatDialog(QtGui.QDialog, catDialog.Ui_catDialog):
 
         # Disbale the add cat button until min length
         self.catAddPushButton.setEnabled(False)
+        self.catDelPushButton.setEnabled(False)
         self.catLineEdit.textChanged.connect(self.disableButton)
 
         # Wire up signals for add delete button
@@ -32,6 +33,14 @@ class CatDialog(QtGui.QDialog, catDialog.Ui_catDialog):
         self.catButtonBox.rejected.connect(self.reject)
         self.catAddPushButton.clicked.connect(self.add_cat_btn_pressed)
         self.catDelPushButton.clicked.connect(self.delete_cats_btn_pressed)
+        self.catListWidget.itemSelectionChanged.connect(self.enableDelButton)
+
+    def enableDelButton(self):
+        if len(self.catListWidget.selectedItems()) > 0:
+            # Enable Del items button
+            self.catDelPushButton.setEnabled(True)
+        else:
+            self.catDelPushButton.setEnabled(False)
 
     def refresh_list(self):
         # Initialize the listwidget with categories
@@ -43,12 +52,13 @@ class CatDialog(QtGui.QDialog, catDialog.Ui_catDialog):
         for category in categories:
             # Add to list widget
             item = QtGui.QListWidgetItem(category.category_name, self.catListWidget)
-            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            item.setCheckState(QtCore.Qt.Unchecked)
+            # item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            # item.setCheckState(QtCore.Qt.Unchecked)
             # self.catListWidget.addItem(category.category_name)
             if self.reminder in category.reminders:
                 # Check
-                item.setCheckState(QtCore.Qt.Checked)
+                # item.setCheckState(QtCore.Qt.Checked)
+                item.setSelected(True)
         self.catListWidget.sortItems()
 
     def disableButton(self):
@@ -65,8 +75,9 @@ class CatDialog(QtGui.QDialog, catDialog.Ui_catDialog):
             self.session.add(c)
             self.session.commit()
             item = QtGui.QListWidgetItem(category_name, self.catListWidget)
-            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            item.setCheckState(QtCore.Qt.Unchecked)
+            # item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            # item.setCheckState(QtCore.Qt.Unchecked)
+            item.setSelected(True)
             self.catListWidget.sortItems()
         except exc.IntegrityError as int_exc:
             self.session.rollback()
