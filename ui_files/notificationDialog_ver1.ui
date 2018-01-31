@@ -21,6 +21,9 @@
        <italic>true</italic>
       </font>
      </property>
+     <property name="styleSheet">
+      <string notr="true">QTextBrowser{background-color: rgb(140, 250, 255);}</string>
+     </property>
      <property name="horizontalScrollBarPolicy">
       <enum>Qt::ScrollBarAlwaysOff</enum>
      </property>

@@ -384,12 +384,12 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.show()
         local_due = dt2str(utcstr2local(due, self.time_zone, date_format='%Y-%m-%d %H:%M'))
         dlg = NotificationDialog()
-        htmlcontent = '<h1 font-style="normal"> Due at %s </h1>' % local_due
-        htmlcontent += '<ul>'
-        for category in categories:
-            htmlcontent += '<li><span font-style="normal">%s</span></li>' % category
-        htmlcontent += '</ul>'
-        htmlcontent += '<p>%s</p>' % note
+        # htmlcontent = '<h1 font-style="normal"> Due at %s </h1>' % local_due
+        # htmlcontent += '<ul>'
+        # for category in categories:
+        #     htmlcontent += '<li><span font-style="normal">%s</span></li>' % category
+        # htmlcontent += '</ul>'
+        htmlcontent = '<p>%s</p>' % note
         dlg.notificationTextBrowser.setHtml(htmlcontent)
         dlg.setWindowTitle(unicode('Due at %s, note: %s' % (local_due, smart_truncate(note, length=20))))
         dlg.exec_()

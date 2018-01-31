@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'notificationDialog_ver1.ui'
 #
-# Created: Tue Jan 30 13:01:08 2018
+# Created: Tue Jan 30 18:20:59 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -19,6 +19,7 @@ class Ui_Dialog(object):
         font = QtGui.QFont()
         font.setItalic(True)
         self.notificationTextBrowser.setFont(font)
+        self.notificationTextBrowser.setStyleSheet("QTextBrowser{background-color: rgb(140, 250, 255);}")
         self.notificationTextBrowser.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.notificationTextBrowser.setObjectName("notificationTextBrowser")
         self.gridLayout.addWidget(self.notificationTextBrowser, 0, 0, 1, 1)
