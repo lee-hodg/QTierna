@@ -186,6 +186,11 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.actionAbout.triggered.connect(self.about_action_triggered)
         self.actionExit_2.triggered.connect(self.exit_action_triggered)
 
+        # Popup context menu when click on tree widget for add/edit/rem cat
+        self.mainTreeWidget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.mainTreeWidget.customContextMenuRequested.connect(self.on_context_menu)
+        self.create_popup_menu(parent=self)
+
         # Wire up clicking on categories in tree
         # The idea is that initially table loads with all non-complete
         # reminders, but uncategorized gives those with category,
@@ -197,6 +202,27 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.mainTreeWidget.itemSelectionChanged.connect(self.refresh_table)
 
         self.refresh_table()
+
+    def new_category(self):
+        logger.debug('New category')
+
+    def edit_category(self):
+        logger.debug('Edit category')
+
+    def delete_category(self):
+        logger.debug('Delete category')
+
+    def create_popup_menu(self, parent=None):
+        self.popup_menu = QMenu(parent)
+        self.popup_menu.addAction("New", self.new_category)
+        self.popup_menu.addAction("Rename", self.edit_category)
+        self.popup_menu.addSeparator()
+        self.popup_menu.addAction("Delete", self.delete_category)
+
+    def on_context_menu(self, pos):
+        logger.debug('Hello context menu')
+        node = self.mainTreeWidget.mapToGlobal(pos)
+        self.popup_menu.exec_(node)
 
     @Slot()
     def refreshdates(self):
