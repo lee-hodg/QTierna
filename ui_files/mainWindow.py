@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'mainWindow_ver3.ui'
+# Form implementation generated from reading ui file 'mainWindow_ver4.ui'
 #
-# Created: Tue Jan 30 12:42:40 2018
+# Created: Tue Jan 30 21:59:08 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,7 @@ from PySide import QtCore, QtGui
 class Ui_mainWindow(object):
     def setupUi(self, mainWindow):
         mainWindow.setObjectName("mainWindow")
-        mainWindow.resize(987, 789)
+        mainWindow.resize(1290, 884)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(":/icons/icons/alarm-clock.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         mainWindow.setWindowIcon(icon)
@@ -21,11 +21,12 @@ class Ui_mainWindow(object):
         self.centralwidget.setObjectName("centralwidget")
         self.gridLayout = QtGui.QGridLayout(self.centralwidget)
         self.gridLayout.setObjectName("gridLayout")
-        self.horizontalLayout_2 = QtGui.QHBoxLayout()
-        self.horizontalLayout_2.setSizeConstraint(QtGui.QLayout.SetMinimumSize)
-        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
-        self.mainTreeWidget = QtGui.QTreeWidget(self.centralwidget)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.splitter = QtGui.QSplitter(self.centralwidget)
+        self.splitter.setOrientation(QtCore.Qt.Horizontal)
+        self.splitter.setChildrenCollapsible(False)
+        self.splitter.setObjectName("splitter")
+        self.mainTreeWidget = QtGui.QTreeWidget(self.splitter)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.MinimumExpanding, QtGui.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.mainTreeWidget.sizePolicy().hasHeightForWidth())
@@ -40,9 +41,14 @@ class Ui_mainWindow(object):
         item_1 = QtGui.QTreeWidgetItem(item_0)
         item_1 = QtGui.QTreeWidgetItem(item_0)
         item_1 = QtGui.QTreeWidgetItem(item_0)
-        self.horizontalLayout_2.addWidget(self.mainTreeWidget)
-        self.mainTableWidget = QtGui.QTableWidget(self.centralwidget)
-        self.mainTableWidget.setMinimumSize(QtCore.QSize(761, 0))
+        self.mainTreeWidget.header().setStretchLastSection(True)
+        self.mainTableWidget = QtGui.QTableWidget(self.splitter)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+        sizePolicy.setHorizontalStretch(1)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.mainTableWidget.sizePolicy().hasHeightForWidth())
+        self.mainTableWidget.setSizePolicy(sizePolicy)
+        self.mainTableWidget.setMinimumSize(QtCore.QSize(500, 500))
         self.mainTableWidget.setStyleSheet("QTableWidget{\n"
 "    background-color: #FFF;\n"
 "    alternate-background-color: rgb(140, 250, 255);\n"
@@ -69,11 +75,10 @@ class Ui_mainWindow(object):
         self.mainTableWidget.setHorizontalHeaderItem(3, item)
         self.mainTableWidget.horizontalHeader().setStretchLastSection(True)
         self.mainTableWidget.verticalHeader().setStretchLastSection(False)
-        self.horizontalLayout_2.addWidget(self.mainTableWidget)
-        self.gridLayout.addLayout(self.horizontalLayout_2, 0, 0, 1, 1)
+        self.gridLayout.addWidget(self.splitter, 0, 0, 1, 1)
         mainWindow.setCentralWidget(self.centralwidget)
         self.mainMenubar = QtGui.QMenuBar(mainWindow)
-        self.mainMenubar.setGeometry(QtCore.QRect(0, 0, 987, 25))
+        self.mainMenubar.setGeometry(QtCore.QRect(0, 0, 1290, 25))
         self.mainMenubar.setObjectName("mainMenubar")
         self.menuFile = QtGui.QMenu(self.mainMenubar)
         self.menuFile.setObjectName("menuFile")
