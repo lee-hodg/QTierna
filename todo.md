@@ -1,6 +1,14 @@
-> Right click the row should also offer edit/remove menu
+> Use a QSplitter to make the treewidget and table barrier draggable
+
+> Set a min height for table/tree
 
 > Right click tree widget should offer add/edit/remove category (cf mongo connections box)
+Added skeleton, need to complete it
+Delete/edit will be disabled in the menu if no category is currently selected...(cf the keepass tree widget)
+
+> Similarly right-click row should offer add/edit/remove
+
+> pip/deb/windows installer testing
 
 > Google cals with api and social auth
 
