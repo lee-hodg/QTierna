@@ -1,4 +1,4 @@
-> Right click tree widget should offer add/edit/remove category (cf mongo connections box)
+ > Right click tree widget should offer add/edit/remove category (cf mongo connections box)
 Added skeleton, need to complete it
 Delete/edit will be disabled in the menu if no category is currently selected...(cf the keepass tree widget)
 
