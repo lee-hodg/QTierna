@@ -191,6 +191,20 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.mainTreeWidget.customContextMenuRequested.connect(self.on_context_menu)
         self.create_popup_menu(parent=self)
 
+        # Set bold to our oblig cats in tree
+        myFont = QFont()
+        myFont.setBold(True)
+        self.mainTreeWidget.topLevelItem(0).setFont(0, myFont)
+        self.mainTreeWidget.topLevelItem(0).child(0).setFont(0, myFont)
+        self.mainTreeWidget.topLevelItem(0).child(1).setFont(0, myFont)
+        self.mainTreeWidget.topLevelItem(0).child(2).setFont(0, myFont)
+
+        # Popup context menu when right-click on row on the table widget for
+        # add/edit/remove reminder
+        self.mainTableWidget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.mainTableWidget.customContextMenuRequested.connect(self.on_table_context_menu)
+        self.create_table_popup_menu(parent=self)
+
         # Wire up clicking on categories in tree
         # The idea is that initially table loads with all non-complete
         # reminders, but uncategorized gives those with category,
@@ -214,15 +228,71 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
     def create_popup_menu(self, parent=None):
         self.popup_menu = QMenu(parent)
-        self.popup_menu.addAction("New", self.new_category)
-        self.popup_menu.addAction("Rename", self.edit_category)
+        self.popup_menu.addAction("New category", self.new_category)
+        self.popup_menu.addAction("Rename category", self.edit_category)
         self.popup_menu.addSeparator()
-        self.popup_menu.addAction("Delete", self.delete_category)
+        self.popup_menu.addAction("Delete category", self.delete_category)
 
     def on_context_menu(self, pos):
         logger.debug('Hello context menu')
         node = self.mainTreeWidget.mapToGlobal(pos)
+        # By defualt the rename/delete actions are disabled
+        # New, Rename, Divider, Delete are actions
+        self.popup_menu.actions()[1].setEnabled(False)
+        self.popup_menu.actions()[3].setEnabled(False)
+        # Check if user custom category is selected and if not disable rename/delete
+        # category_name = None
+        cat = self.mainTreeWidget.currentItem()
+        root = self.mainTreeWidget.topLevelItem(0)
+        if cat and cat.parent():
+            # This means a category selected that isn't the root 'Categories'
+            indx = root.indexOfChild(cat)
+            # category_name = cat.text(self.mainTreeWidget.currentColumn())
+            if indx > 2:
+                # Enable edit and delete for user categories only
+                # logger.debug([a.text() for a in self.popup_menu.actions()])
+                self.popup_menu.actions()[1].setEnabled(True)
+                # self.popup_menu.actions()[2].setEnabled(True)
+                self.popup_menu.actions()[3].setEnabled(True)
         self.popup_menu.exec_(node)
+
+    def new_reminder_ctx(self):
+        logger.debug('New reminder ctx menu')
+
+    def edit_reminder_ctx(self):
+        logger.debug('Edit reminder')
+
+    def delete_reminder_ctx(self):
+        logger.debug('Delete reminder')
+
+    def create_table_popup_menu(self, parent=None):
+        self.table_popup_menu = QMenu(parent)
+        self.table_popup_menu.addAction("New reminder", self.new_reminder_ctx)
+        self.table_popup_menu.addAction("Edit reminder", self.edit_reminder_ctx)
+        self.table_popup_menu.addSeparator()
+        self.table_popup_menu.addAction("Delete reminder(s)", self.delete_reminder_ctx)
+
+    def on_table_context_menu(self, pos):
+        logger.debug('Hello table context menu')
+        node = self.mainTableWidget.mapToGlobal(pos)
+        # By defualt the rename/delete actions are disabled
+        # New, Rename, Divider, Delete are actions
+        self.table_popup_menu.actions()[0].setEnabled(False)
+        self.table_popup_menu.actions()[1].setEnabled(False)
+        self.table_popup_menu.actions()[3].setEnabled(False)
+        indices = self.mainTableWidget.selectionModel().selectedRows()
+        logger.debug('Got %i rows selected' % len(indices))
+        if len(indices) == 0:
+            # Just new
+            self.table_popup_menu.actions()[0].setEnabled(True)
+        elif len(indices) == 1:
+            # Allow edit/delete
+            self.table_popup_menu.actions()[1].setEnabled(True)
+            self.table_popup_menu.actions()[3].setEnabled(True)
+        elif len(indices) >= 2:
+            # Just delete
+            self.table_popup_menu.actions()[3].setEnabled(True)
+        self.table_popup_menu.exec_(node)
 
     @Slot()
     def refreshdates(self):

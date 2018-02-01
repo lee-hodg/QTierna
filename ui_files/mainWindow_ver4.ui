@@ -56,6 +56,12 @@
         <property name="text">
          <string>category</string>
         </property>
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
        </column>
        <item>
         <property name="text">
@@ -71,15 +77,33 @@
          <property name="text">
           <string>All</string>
          </property>
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
         </item>
         <item>
          <property name="text">
           <string>Complete</string>
          </property>
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
         </item>
         <item>
          <property name="text">
           <string>Uncategorized</string>
+         </property>
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
          </property>
         </item>
        </item>

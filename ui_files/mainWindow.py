@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainWindow_ver4.ui'
 #
-# Created: Tue Jan 30 21:59:08 2018
+# Created: Thu Feb  1 00:11:43 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -39,8 +39,17 @@ class Ui_mainWindow(object):
         font.setWeight(75)
         font.setBold(True)
         item_1 = QtGui.QTreeWidgetItem(item_0)
+        font = QtGui.QFont()
+        font.setWeight(75)
+        font.setBold(True)
         item_1 = QtGui.QTreeWidgetItem(item_0)
+        font = QtGui.QFont()
+        font.setWeight(75)
+        font.setBold(True)
         item_1 = QtGui.QTreeWidgetItem(item_0)
+        font = QtGui.QFont()
+        font.setWeight(75)
+        font.setBold(True)
         self.mainTreeWidget.header().setStretchLastSection(True)
         self.mainTableWidget = QtGui.QTableWidget(self.splitter)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
