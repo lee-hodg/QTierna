@@ -22,7 +22,7 @@ import io
 
 from setup_logging import logger
 
-from ui_files import mainWindow, prefDialog, aboutDialog, notificationDialog
+from ui_files import mainWindow, prefDialog, aboutDialog, notificationDialog, addCatDialog
 
 from add_dlg import AddEditDialog
 
@@ -40,6 +40,13 @@ if not os.path.exists(appDataPath):
 db_path = os.path.join(appDataPath, "reminders.db")
 engine = create_engine('sqlite:///%s' % db_path, echo=False)
 Session = sessionmaker(bind=engine)
+
+
+class AddCatDialog(QDialog, addCatDialog.Ui_addCatDialog):
+
+    def __init__(self, parent=None):
+        super(AddCatDialog, self).__init__(parent)
+        self.setupUi(self)
 
 
 class AboutDialog(QDialog, aboutDialog.Ui_aboutDialog):
@@ -219,12 +226,17 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
     def new_category(self):
         logger.debug('New category')
+        dlg = AddCatDialog(parent=self)
+        dlg.exec_()
 
     def edit_category(self):
         logger.debug('Edit category')
+        # Find category selected, init AddEditDialog with existing_category
+        # instance. Do validation on that dialog
 
     def delete_category(self):
         logger.debug('Delete category')
+        # Find category selected and delete it, give QMessageBox to notify user
 
     def create_popup_menu(self, parent=None):
         self.popup_menu = QMenu(parent)
