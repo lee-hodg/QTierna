@@ -11,6 +11,7 @@ from models import Reminder, Category, Base
 from sqlalchemy.sql import func
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import exc
 import sys
 import arrow
 import pytz
@@ -44,9 +45,66 @@ Session = sessionmaker(bind=engine)
 
 class AddCatDialog(QDialog, addCatDialog.Ui_addCatDialog):
 
-    def __init__(self, parent=None):
+    # Will refresh tree of categories when we add
+    categories_changed = Signal()
+
+    def __init__(self, session, existing_cat=None, parent=None):
         super(AddCatDialog, self).__init__(parent)
         self.setupUi(self)
+
+        if existing_cat:
+            self.category = existing_cat
+        else:
+            self.category = Category()
+
+        # SQL Alchemy session
+        self.session = session
+
+        # Some validation
+        self.addCatLineEdit.setMaxLength(50)
+        self.addCatButtonBox.button(QDialogButtonBox.Save).setEnabled(False)
+        self.addCatLineEdit.textChanged.connect(self.disableButton)
+
+    @Slot()
+    def disableButton(self):
+        '''Only enable add cat button when category above min length'''
+        if len(self.addCatLineEdit.text().strip()) > 0 and len(self.addCatLineEdit.text().strip()) <= 50:
+            self.addCatButtonBox.button(QDialogButtonBox.Save).setEnabled(True)
+        else:
+            self.addCatButtonBox.button(QDialogButtonBox.Save).setEnabled(False)
+
+    def accept(self):
+        # Override accept so we can first validate
+        if self.is_valid():
+            self.category.category_name = self.addCatLineEdit.text().strip()
+            try:
+                self.session.add(self.category)
+                self.session.commit()
+                logger.debug('Added cat %s to db' % self.category.category_name)
+            except exc.IntegrityError as int_exc:
+                self.session.rollback()
+                logger.error(int_exc)
+                QMessageBox.warning(self, "Already exists warning", unicode('This category already exists'))
+                self.addCatLineEdit.setFocus()
+                self.selectAll()
+                return
+            else:
+                # All good, accept after triggering tree refresh with sig
+                self.categories_changed.emit()
+                QDialog.accept(self)
+
+    def is_valid(self):
+        '''
+        Check valid cat
+            Not existing (let the db integrity error deal with that)
+            Not a reserved word
+            Not empty string and not above 30 chars long(let the disable/enable save btn deal with that)
+        '''
+        category_name = self.addCatLineEdit.text().strip()
+        if category_name.lower().strip() in ['all', 'complete', 'uncategorized', 'categories', 'category']:
+            QMessageBox.warning(self, "Reserved warning", unicode("Choose a different name"))
+            return False
+        return True
 
 
 class AboutDialog(QDialog, aboutDialog.Ui_aboutDialog):
@@ -226,8 +284,14 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
     def new_category(self):
         logger.debug('New category')
-        dlg = AddCatDialog(parent=self)
-        dlg.exec_()
+        # text, ok = QInputDialog.getText(self, "Add Category", "Category:")
+        dlg = AddCatDialog(self.session, parent=self)
+        dlg.categories_changed.connect(self.handle_categories_changed)
+        # The placeholder text doesn't show because focus is initially
+        # on the lineedit as the sole element. Could do something like
+        dlg.setFocus()
+        if dlg.exec_():
+            logger.debug('Added new category...')
 
     def edit_category(self):
         logger.debug('Edit category')
