@@ -1,3 +1,14 @@
+> When user adds new reminder should switch to 'All' category to show it in the table
+
+> When reminder is about to popup the ui briefly freezes, so this reminder should be in new thread
+
+> Reminder popup should be above all active windows, and maybe a systray dialog would be cool too
+
+> Sound alert???
+
+> During the add a reminder clicking "Edit Categories" more than once seems to yield a bug
+about rollback
+
 > pip/deb/windows installer testing
 
 > Google cals with api and social auth

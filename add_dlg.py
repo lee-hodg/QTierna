@@ -147,7 +147,7 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
 
         # Check length of the reminder
         if len(reminder.note) > 1000:
-            QtGui.QMessageBox.warning(self, "Too long warning", "Reminder is %i characters too long!" % (len(reminder) - 1000))
+            QtGui.QMessageBox.warning(self, "Too long warning", "Reminder is %i characters too long!" % (len(reminder.note) - 1000))
             self.addDlgTextEdit.setFocus()
             self.addDlgTextEdit.selectAll()
             return False
