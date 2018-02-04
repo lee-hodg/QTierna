@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainWindow_ver5.ui'
 #
-# Created: Sun Feb  4 00:25:30 2018
+# Created: Sun Feb  4 13:31:08 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -66,7 +66,18 @@ class Ui_mainWindow(object):
 "QTableWidget[complete=true]{\n"
 "    background-color: #FFF;\n"
 "    alternate-background-color: rgb(115, 235, 174, 127);\n"
-"}")
+"}\n"
+"\n"
+"QToolTip {\n"
+"\n"
+"color: #000000; \n"
+"border-radius: 5px;\n"
+"max-width: 300px; \n"
+"background-color: rgb(140, 250, 255); \n"
+"border: 1px solid white; \n"
+"\n"
+"}\n"
+"")
         self.mainTableWidget.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.mainTableWidget.setAlternatingRowColors(True)
         self.mainTableWidget.setSelectionMode(QtGui.QAbstractItemView.MultiSelection)

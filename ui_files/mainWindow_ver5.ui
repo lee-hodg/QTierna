@@ -130,7 +130,18 @@
 QTableWidget[complete=true]{
 	background-color: #FFF;
 	alternate-background-color: rgb(115, 235, 174, 127);
-}</string>
+}
+
+QToolTip {
+
+color: #000000; 
+border-radius: 5px;
+max-width: 300px; 
+background-color: rgb(140, 250, 255); 
+border: 1px solid white; 
+
+}
+</string>
        </property>
        <property name="horizontalScrollBarPolicy">
         <enum>Qt::ScrollBarAlwaysOff</enum>

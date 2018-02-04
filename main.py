@@ -481,8 +481,13 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
                 # Highlight
                 self.mainTableWidget.item(inx, 0).setBackground(self.soon_color)
 
-            self.mainTableWidget.setItem(inx, 1, QTableWidgetItem(categories))
-            self.mainTableWidget.setItem(inx, 2, QTableWidgetItem(smart_truncate(reminder.note)))
+            catItem = QTableWidgetItem(categories)
+            catItem.setToolTip(categories)
+            self.mainTableWidget.setItem(inx, 1, catItem)
+            noteItem = QTableWidgetItem(smart_truncate(reminder.note))
+            noteTip = u"<div style='width: 300px;'>%s</div>" % reminder.note
+            noteItem.setToolTip(noteTip)
+            self.mainTableWidget.setItem(inx, 2, noteItem)
             self.mainTableWidget.setItem(inx, 3, QTableWidgetItem(utc_datetime_str))
 
             # if reminder.complete:
@@ -521,6 +526,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
                 # due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
                 due_utc_str = self.mainTableWidget.item(selected_row, 3).text()
                 note = self.mainTableWidget.item(selected_row, 2).text()
+                logger.debug('searching for due:%s and note: %s' % (due_utc_str, note))
                 reminder = self.session.query(Reminder).filter(Reminder.due == due_utc_str,
                                                                Reminder.note == note).first()
                 logger.debug('Got reminder %s for edit.' % reminder)

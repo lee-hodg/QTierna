@@ -35,6 +35,7 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
             self.reminder = Reminder(due=utc_now_str)
         else:
             # Enable the completed checkbox for existing reminders
+            self.setWindowTitle('Edit reminder')
             self.addDlgCompletecheckBox.setEnabled(True)
         self._init_widgets()
 
