@@ -1,5 +1,3 @@
-> Right-click row should offer add/edit/remove reminder actions....Use the same actions as the toolbar and main menu, I don't think any need to repeat those things
-
 > pip/deb/windows installer testing
 
 > Google cals with api and social auth

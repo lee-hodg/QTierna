@@ -196,8 +196,8 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         # Col Widths
         total_width = self.mainTableWidget.width()
         self.mainTableWidget.setColumnWidth(0, (total_width/10.0)*2)
-        self.mainTableWidget.setColumnWidth(1, total_width/10.0)
-        self.mainTableWidget.setColumnWidth(2, (total_width/10.0)*7)
+        self.mainTableWidget.setColumnWidth(1, (total_width/10.0)*2)
+        self.mainTableWidget.setColumnWidth(2, (total_width/10.0)*6)
         self.mainTableWidget.setColumnWidth(3, 0)
         self.mainTableWidget.setColumnHidden(3, True)
 
@@ -348,21 +348,22 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
                 self.popup_menu.actions()[3].setEnabled(True)
         self.popup_menu.exec_(node)
 
-    def new_reminder_ctx(self):
-        logger.debug('New reminder ctx menu')
+    # def new_reminder_ctx(self):
+    #     logger.debug('New reminder ctx menu')
 
-    def edit_reminder_ctx(self):
-        logger.debug('Edit reminder')
+    # def edit_reminder_ctx(self):
+    #     logger.debug('Edit reminder')
 
-    def delete_reminder_ctx(self):
-        logger.debug('Delete reminder')
+    # def delete_reminder_ctx(self):
+    #     logger.debug('Delete reminder')
 
     def create_table_popup_menu(self, parent=None):
         self.table_popup_menu = QMenu(parent)
-        self.table_popup_menu.addAction("New reminder", self.new_reminder_ctx)
-        self.table_popup_menu.addAction("Edit reminder", self.edit_reminder_ctx)
+        # self.table_popup_menu.addAction("New reminder", self.new_reminder_ctx)
+        self.table_popup_menu.addAction(self.actionAdd_Reminder)
+        self.table_popup_menu.addAction(self.actionEdit_Reminder)
         self.table_popup_menu.addSeparator()
-        self.table_popup_menu.addAction("Delete reminder(s)", self.delete_reminder_ctx)
+        self.table_popup_menu.addAction(self.actionRemove_Reminder)
 
     def on_table_context_menu(self, pos):
         logger.debug('Hello table context menu')
@@ -378,7 +379,8 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             # Just new
             self.table_popup_menu.actions()[0].setEnabled(True)
         elif len(indices) == 1:
-            # Allow edit/delete
+            # Allow new/edit/delete
+            self.table_popup_menu.actions()[0].setEnabled(True)
             self.table_popup_menu.actions()[1].setEnabled(True)
             self.table_popup_menu.actions()[3].setEnabled(True)
         elif len(indices) >= 2:

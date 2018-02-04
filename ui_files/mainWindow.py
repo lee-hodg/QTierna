@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'mainWindow_ver4.ui'
+# Form implementation generated from reading ui file 'mainWindow_ver5.ui'
 #
-# Created: Thu Feb  1 00:11:43 2018
+# Created: Sun Feb  4 00:25:30 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,7 @@ from PySide import QtCore, QtGui
 class Ui_mainWindow(object):
     def setupUi(self, mainWindow):
         mainWindow.setObjectName("mainWindow")
-        mainWindow.resize(1290, 884)
+        mainWindow.resize(944, 694)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(":/icons/icons/alarm-clock.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         mainWindow.setWindowIcon(icon)
@@ -87,7 +87,7 @@ class Ui_mainWindow(object):
         self.gridLayout.addWidget(self.splitter, 0, 0, 1, 1)
         mainWindow.setCentralWidget(self.centralwidget)
         self.mainMenubar = QtGui.QMenuBar(mainWindow)
-        self.mainMenubar.setGeometry(QtCore.QRect(0, 0, 1290, 25))
+        self.mainMenubar.setGeometry(QtCore.QRect(0, 0, 944, 25))
         self.mainMenubar.setObjectName("mainMenubar")
         self.menuFile = QtGui.QMenu(self.mainMenubar)
         self.menuFile.setObjectName("menuFile")
