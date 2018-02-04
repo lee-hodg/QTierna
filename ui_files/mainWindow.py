@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'mainWindow_ver5.ui'
+# Form implementation generated from reading ui file 'mainWindow_ver6.ui'
 #
-# Created: Sun Feb  4 13:31:08 2018
+# Created: Sun Feb  4 13:50:42 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -83,7 +83,7 @@ class Ui_mainWindow(object):
         self.mainTableWidget.setSelectionMode(QtGui.QAbstractItemView.MultiSelection)
         self.mainTableWidget.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         self.mainTableWidget.setObjectName("mainTableWidget")
-        self.mainTableWidget.setColumnCount(4)
+        self.mainTableWidget.setColumnCount(5)
         self.mainTableWidget.setRowCount(0)
         item = QtGui.QTableWidgetItem()
         self.mainTableWidget.setHorizontalHeaderItem(0, item)
@@ -93,6 +93,8 @@ class Ui_mainWindow(object):
         self.mainTableWidget.setHorizontalHeaderItem(2, item)
         item = QtGui.QTableWidgetItem()
         self.mainTableWidget.setHorizontalHeaderItem(3, item)
+        item = QtGui.QTableWidgetItem()
+        self.mainTableWidget.setHorizontalHeaderItem(4, item)
         self.mainTableWidget.horizontalHeader().setStretchLastSection(True)
         self.mainTableWidget.verticalHeader().setStretchLastSection(False)
         self.gridLayout.addWidget(self.splitter, 0, 0, 1, 1)
@@ -205,6 +207,7 @@ class Ui_mainWindow(object):
         self.mainTableWidget.horizontalHeaderItem(1).setText(QtGui.QApplication.translate("mainWindow", "Category", None, QtGui.QApplication.UnicodeUTF8))
         self.mainTableWidget.horizontalHeaderItem(2).setText(QtGui.QApplication.translate("mainWindow", "Reminder", None, QtGui.QApplication.UnicodeUTF8))
         self.mainTableWidget.horizontalHeaderItem(3).setText(QtGui.QApplication.translate("mainWindow", "UTCDue", None, QtGui.QApplication.UnicodeUTF8))
+        self.mainTableWidget.horizontalHeaderItem(4).setText(QtGui.QApplication.translate("mainWindow", "PK", None, QtGui.QApplication.UnicodeUTF8))
         self.menuFile.setTitle(QtGui.QApplication.translate("mainWindow", "File", None, QtGui.QApplication.UnicodeUTF8))
         self.menuAbout.setTitle(QtGui.QApplication.translate("mainWindow", "About", None, QtGui.QApplication.UnicodeUTF8))
         self.menuReminder.setTitle(QtGui.QApplication.translate("mainWindow", "Edit", None, QtGui.QApplication.UnicodeUTF8))

@@ -198,8 +198,11 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.mainTableWidget.setColumnWidth(0, (total_width/10.0)*2)
         self.mainTableWidget.setColumnWidth(1, (total_width/10.0)*2)
         self.mainTableWidget.setColumnWidth(2, (total_width/10.0)*6)
+        # Hidden UTC and PK cols (to store full date and PK)
         self.mainTableWidget.setColumnWidth(3, 0)
         self.mainTableWidget.setColumnHidden(3, True)
+        self.mainTableWidget.setColumnWidth(4, 0)
+        self.mainTableWidget.setColumnHidden(4, True)
 
         self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "QTierna", "QTierna")
         self.minimizeToTray = str2bool(self.settings.value("minimizeToTray", True))
@@ -465,7 +468,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         for inx, reminder in enumerate(reminders):
             # UTC in db
             utc_datetime_str = reminder.due
-            # local_datetime_str = dt2str(utcstr2local(utc_datetime_str, self.time_zone))
+            local_datetime_str = dt2str(utcstr2local(utc_datetime_str, self.time_zone))
             categories = ', '.join([category.category_name for category in reminder.categories])
             # We can get beautiful human times with arrow
             arrow_utc_dt = arrow.get(utc_datetime_str, 'YYYY-MM-DD HH:mm')
@@ -476,19 +479,28 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             # it on hidden column maybe?
             self.mainTableWidget.insertRow(inx)
             self.mainTableWidget.setItem(inx, 0, QTableWidgetItem(human_due))
+            self.mainTableWidget.item(inx, 0).setToolTip(local_datetime_str)
             hours_before = ((arrow_utc_dt - arrow.utcnow()).total_seconds())/3600.0
             if hours_before <= 24 and hours_before > 0:
                 # Highlight
                 self.mainTableWidget.item(inx, 0).setBackground(self.soon_color)
 
             catItem = QTableWidgetItem(categories)
-            catItem.setToolTip(categories)
+            if len(reminder.categories) > 0:
+                # catTip = '<ul style="list-style: none; padding-left: 0;">'
+                # for category in reminder.categories:
+                #     catTip += '<li>%s</li>' % category.category_name
+                # catTip += '</ul>'
+                catTip = u'<font color="black">%s</font>' % '<br/>'.join([c.category_name for c in reminder.categories])
+                catItem.setToolTip(catTip)
             self.mainTableWidget.setItem(inx, 1, catItem)
             noteItem = QTableWidgetItem(smart_truncate(reminder.note))
-            noteTip = u"<div style='width: 300px;'>%s</div>" % reminder.note
+            noteTip = u"<div style='width: 300px;'>%s</div>" % smart_truncate(reminder.note, length=1000)
             noteItem.setToolTip(noteTip)
             self.mainTableWidget.setItem(inx, 2, noteItem)
             self.mainTableWidget.setItem(inx, 3, QTableWidgetItem(utc_datetime_str))
+            logger.debug('Setting fifth col with %s' % reminder.reminder_id)
+            self.mainTableWidget.setItem(inx, 4, QTableWidgetItem(unicode(reminder.reminder_id)))
 
             # if reminder.complete:
             #     # Already notified
@@ -522,13 +534,18 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             selected_rows = [index.row() for index in indices]
             if len(selected_rows) == 1:
                 selected_row = selected_rows[0]
+                # PK (use PK not reminder, because for long notes the value
+                # in the Reminder col of qttablewidget item wont match full note)
+                pk = self.mainTableWidget.item(selected_row, 4).text()
+                logger.debug('Reminder with pk %s' % pk)
                 # due_local_str = self.mainTableWidget.item(selected_row, 0).text()
                 # due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
-                due_utc_str = self.mainTableWidget.item(selected_row, 3).text()
-                note = self.mainTableWidget.item(selected_row, 2).text()
-                logger.debug('searching for due:%s and note: %s' % (due_utc_str, note))
-                reminder = self.session.query(Reminder).filter(Reminder.due == due_utc_str,
-                                                               Reminder.note == note).first()
+                # due_utc_str = self.mainTableWidget.item(selected_row, 3).text()
+                # note = self.mainTableWidget.item(selected_row, 2).text()
+                # logger.debug('searching for due:%s and note: %s' % (due_utc_str, note))
+                reminder = self.session.query(Reminder).get(int(pk))
+                # reminder = self.session.query(Reminder).filter(Reminder.due == due_utc_str,
+                #                                                Reminder.note == note).first()
                 logger.debug('Got reminder %s for edit.' % reminder)
             else:
                 QMessageBox.warning(self, 'Select rows', 'You must select one row.')
@@ -576,10 +593,10 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             for row in sorted(selected_rows, reverse=True):
                 # due_local_str = self.mainTableWidget.item(row, 0).text()
                 # due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
-                due_utc_str = self.mainTableWidget.item(row, 3).text()
-                note = self.mainTableWidget.item(row, 2).text()
-                reminder = self.session.query(Reminder).filter(Reminder.due == due_utc_str,
-                                                               Reminder.note == note).first()
+                # due_utc_str = self.mainTableWidget.item(row, 3).text()
+                # note = self.mainTableWidget.item(row, 2).text()
+                pk = self.mainTableWidget.item(row, 4).text()
+                reminder = self.session.query(Reminder).get(int(pk))
                 self.session.delete(reminder)
                 self.session.commit()
                 self.mainTableWidget.removeRow(row)
