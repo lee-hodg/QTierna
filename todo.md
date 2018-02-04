@@ -1,8 +1,4 @@
-> Right click tree widget should offer add/edit/remove category (cf mongo connections box)
-Added skeleton, need to complete it
-Delete/edit will be disabled in the menu if no category is currently selected...(cf the keepass tree widget)
-
-> Similarly right-click row should offer add/edit/remove
+> Right-click row should offer add/edit/remove reminder actions....Use the same actions as the toolbar and main menu, I don't think any need to repeat those things
 
 > pip/deb/windows installer testing
 
