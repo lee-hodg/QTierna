@@ -54,6 +54,7 @@ class AddCatDialog(QDialog, addCatDialog.Ui_addCatDialog):
 
         if existing_cat:
             self.category = existing_cat
+            self.addCatLineEdit.setText(self.category.category_name)
         else:
             self.category = Category()
 
@@ -295,12 +296,27 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
 
     def edit_category(self):
         logger.debug('Edit category')
-        # Find category selected, init AddEditDialog with existing_category
-        # instance. Do validation on that dialog
+        # Selected category
+        cat = self.mainTreeWidget.currentItem()
+        category_name = cat.text(self.mainTreeWidget.currentColumn())
+        category = self.session.query(Category).filter(Category.category_name == category_name).first()
+        dlg = AddCatDialog(self.session, existing_cat=category, parent=self)
+        dlg.categories_changed.connect(self.handle_categories_changed)
+        # The placeholder text doesn't show because focus is initially
+        # on the lineedit as the sole element. Could do something like
+        dlg.setFocus()
+        if dlg.exec_():
+            logger.debug('Added new category...')
 
     def delete_category(self):
         logger.debug('Delete category')
-        # Find category selected and delete it, give QMessageBox to notify user
+        cat = self.mainTreeWidget.currentItem()
+        category_name = cat.text(self.mainTreeWidget.currentColumn())
+        self.session.query(Category).filter(Category.category_name == category_name).delete()
+        self.session.commit()
+        self.refresh_tree()
+        self.refresh_table()
+        QMessageBox.info(self, "Deleted category", "Successfully deleted category %s" % category_name)
 
     def create_popup_menu(self, parent=None):
         self.popup_menu = QMenu(parent)
