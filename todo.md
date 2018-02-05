@@ -1,13 +1,11 @@
-> When user adds new reminder should switch to 'All' category to show it in the table
-
-> When reminder is about to popup the ui briefly freezes, so this reminder should be in new thread
+> When reminder is about to popup the ui briefly freezes, so this reminder should be in new thread?
+Not sure. We only have one GUI thread, I'm not sure a second thread could show a reminder dialog anyway, only signal
+to the main thread to show one...Would need a second GUI thread. It's kind of fine anyway that the popup blocks, it's modal
+afterall, but why is there a brief pause of freeze before it actually shows?
 
 > Reminder popup should be above all active windows, and maybe a systray dialog would be cool too
 
 > Sound alert???
-
-> During the add a reminder clicking "Edit Categories" more than once seems to yield a bug
-about rollback
 
 > pip/deb/windows installer testing
 
