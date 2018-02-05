@@ -140,12 +140,18 @@ class PrefDialog(QDialog, prefDialog.Ui_prefDialog):
         self.minimizeCheckBox.setChecked(minimize)
         # self.hideCompleteCheckBox.setChecked(showcomplete)
 
+        # Hide the listwidget to begin
+        # self.tzListWidget.setHidden(True)
+        self.tzListWidget.setVisible(False)
+        self.adjustSize()
+
         # Signal
         # self.tzComboBox.currentIndexChanged.connect(self.handle_time_zone_changed)
         self.tzLineEdit.textChanged.connect(self.update_zones_list)
         self.tzListWidget.itemSelectionChanged.connect(self.handle_time_zone_changed)
 
     def update_zones_list(self):
+        # self.tzListWidget.setHidden(False)
         query = self.tzLineEdit.text().strip()
         self.tzListWidget.clear()
         if len(query) > 0:
@@ -163,10 +169,13 @@ class PrefDialog(QDialog, prefDialog.Ui_prefDialog):
             zones = filter(zone_filter, pytz.common_timezones)
         else:
             zones = pytz.common_timezones
-        for tz in zones:
-            item = QListWidgetItem(tz, self.tzListWidget)
-            if self.time_zone.zone == tz:
-                item.setSelected(True)
+        if len(zones) > 0:
+            self.tzListWidget.setVisible(True)
+            self.adjustSize()
+            for tz in zones:
+                item = QListWidgetItem(tz, self.tzListWidget)
+                if self.time_zone.zone == tz:
+                    item.setSelected(True)
 
     def handle_time_zone_changed(self):
         '''
