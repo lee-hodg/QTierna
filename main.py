@@ -13,6 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import exc
 import sys
+import time
 import arrow
 import pytz
 # import re
@@ -776,7 +777,6 @@ class Worker(QObject):
         reminders = self.session.query(Reminder).filter(Reminder.complete == False).filter(func.DATETIME(Reminder.due, 'utc') <= func.DATETIME('now', 'utc')).all()
         logger.debug('Got %i reminders due...' % len(reminders))
         for reminder in reminders:
-            import time
             time.sleep(1)
             reminder.complete = True
             self.session.commit()

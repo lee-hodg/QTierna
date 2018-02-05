@@ -145,6 +145,8 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
             else:
                 # All good, accept
                 QtGui.QDialog.accept(self)
+        else:
+            self.session.rollback()
 
     def is_valid(self, reminder):
         '''
