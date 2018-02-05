@@ -203,6 +203,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.mainTableWidget.setColumnHidden(3, True)
         self.mainTableWidget.setColumnWidth(4, 0)
         self.mainTableWidget.setColumnHidden(4, True)
+        self.mainTableWidget.itemDoubleClicked.connect(self.table_dbl_click)
 
         self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "QTierna", "QTierna")
         self.minimizeToTray = str2bool(self.settings.value("minimizeToTray", True))
@@ -285,6 +286,14 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         self.mainTreeWidget.itemSelectionChanged.connect(self.refresh_table)
 
         self.refresh_table()
+
+    def table_dbl_click(self, item):
+        row = item.row()
+        pk = self.mainTableWidget.item(row, 4).text()
+        self.mainTableWidget.clearSelection()
+        self.mainTableWidget.selectRow(row)
+        logger.debug('Table row %s with pk %s dbl clicked' % (row, pk))
+        self.actionEdit_Reminder.triggered.emit()
 
     def new_category(self):
         logger.debug('New category')
@@ -399,10 +408,13 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         '''
         for indx in xrange(self.mainTableWidget.rowCount()):
             utc_datetime_str = self.mainTableWidget.item(indx, 3).text()
+            # local_datetime_str = dt2str(utcstr2local(utc_datetime_str, self.time_zone))
             # Update the human date at (indx, 0) (e.g. "In 25 minutes")
             arrow_utc_dt = arrow.get(utc_datetime_str, 'YYYY-MM-DD HH:mm')
             human_due = arrow_utc_dt.humanize()
-            self.mainTableWidget.setItem(indx, 0, QTableWidgetItem(human_due))
+            # self.mainTableWidget.setItem(indx, 0, QTableWidgetItem(human_due))
+            # self.mainTableWidget.item(indx, 0).setToolTip(local_datetime_str)
+            self.mainTableWidget.item(indx, 0).setText(human_due)
             hours_before = ((arrow_utc_dt - arrow.utcnow()).total_seconds())/3600.0
             if hours_before <= 24 and hours_before > 0:
                 # Highlight
@@ -554,6 +566,11 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         dialog = AddEditDialog(self.session, self.time_zone, existing_reminder=reminder, parent=self)
         dialog.categories_changed.connect(self.handle_categories_changed)
         if dialog.exec_():
+            # Focus on 'All' category so we can see new reminder being added
+            root = self.mainTreeWidget.topLevelItem(0)
+            all_item = root.child(0)
+            logger.debug('Set the tree item as %s' % all_item.text(0))
+            self.mainTreeWidget.setCurrentItem(all_item)
             self.refresh_table()
 
     @Slot()
