@@ -28,6 +28,8 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
         # Do not allow selection of past dates
         self.addDlgCalendarWidget.setMinimumDate(QtCore.QDate.currentDate())
 
+        self.categoriesDlg = None
+
         # Set a Reminder instance associated with the dialog
         self.reminder = existing_reminder
         if self.reminder is None:
@@ -59,22 +61,27 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
         self.categories_changed.emit()
 
     def launch_categories(self):
-        # Launch cats dialog
+        '''
+        Launch manage categories dialog, which allows the user to add new categories
+        and to select categories that this reminder will be included in.
 
-        # If save we need to get the list of categories
-
-        # We need to ensure this list of categories gets reflected in db
-
-        # We need to get which ones are checked, store them somewhere on
-        # this add dialog instance, and then when we save this instance
-        # add them to reminder model
-        dlg = CatDialog(self.session, self.reminder, parent=self)
-        dlg.categories_changed.connect(self.handle_categories_changed)
-        if dlg.exec_():
-            category_names = [item.text() for item in dlg.catListWidget.selectedItems()]
-            logger.debug('Selected categories were %s' % category_names)
-            category_instances = self.session.query(Category).filter(Category.category_name.in_(category_names)).all()
-            self.reminder.categories = category_instances
+        We show the dialog and merely hide it when the user accepts/rejects, keeping
+        a reference to it on this dialog, which will die when this dialog dies.
+        If we added the categories immediately to the Reminder instance like
+        reminder.categories = category_instances, then we'd also immediately be adding
+        tht reminder to those categories .reminders list, which would dirty the categories
+        with unsaved changed, messing up subsequent queries (if user edits the cats for the reminder
+        more than once and we query categories) or if reminder is ultimately discarded by the user.
+        The correct behaviour is only to save the categories onto the reminder when the user
+        saves the reminder itself.
+        '''
+        if self.categoriesDlg is None:
+            self.categoriesDlg = CatDialog(self.session, self.reminder, parent=self)
+            self.categoriesDlg.categories_changed.connect(self.handle_categories_changed)
+        self.categoriesDlg.setModal(True)
+        self.categoriesDlg.show()
+        self.categoriesDlg.raise_()
+        self.categoriesDlg.activateWindow()
 
     def accept(self):
         '''
@@ -122,6 +129,12 @@ class AddEditDialog(QtGui.QDialog, addDialog.Ui_addDialog):
         self._update_reminder()
         if self.is_valid(self.reminder):
             try:
+                if self.categoriesDlg is not None:
+                    # User edited categories we must update
+                    category_names = [item.text() for item in self.categoriesDlg.catListWidget.selectedItems()]
+                    logger.debug('Selected categories were %s' % category_names)
+                    category_instances = self.session.query(Category).filter(Category.category_name.in_(category_names)).all()
+                    self.reminder.categories = category_instances
                 self.session.add(self.reminder)
                 self.session.commit()
             except exc.IntegrityError as int_exc:

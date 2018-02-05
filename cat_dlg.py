@@ -11,6 +11,7 @@ class CatDialog(QtGui.QDialog, catDialog.Ui_catDialog):
 
     def __init__(self, session, reminder, parent=None):
         super(CatDialog, self).__init__(parent)
+        logger.debug('CatDialog parent is %s' % parent)
         self.setupUi(self)
 
         # SQL alchemy session
