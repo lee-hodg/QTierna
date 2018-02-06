@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>catDialog</class>
- <widget class="QDialog" name="catDialog">
+ <class>manageRemCatsDialog</class>
+ <widget class="QDialog" name="manageRemCatsDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -19,7 +19,7 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
-        <widget class="QLineEdit" name="catLineEdit">
+        <widget class="QLineEdit" name="manageRemCatsLineEdit">
          <property name="sizePolicy">
           <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -32,7 +32,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="catAddPushButton">
+        <widget class="QPushButton" name="manageRemCatsPushButton">
          <property name="text">
           <string>Add</string>
          </property>
@@ -41,7 +41,7 @@
       </layout>
      </item>
      <item>
-      <widget class="QListWidget" name="catListWidget">
+      <widget class="QListWidget" name="manageRemCatsListWidget">
        <property name="horizontalScrollBarPolicy">
         <enum>Qt::ScrollBarAlwaysOff</enum>
        </property>
@@ -51,14 +51,14 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="catDelPushButton">
+      <widget class="QPushButton" name="manageRemCatsDelPushButton">
        <property name="text">
         <string>Delete selected</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QDialogButtonBox" name="catButtonBox">
+      <widget class="QDialogButtonBox" name="manageRemCatsButtonBox">
        <property name="standardButtons">
         <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
        </property>

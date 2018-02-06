@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>addDialog</class>
- <widget class="QDialog" name="addDialog">
+ <class>addEditRemDialog</class>
+ <widget class="QDialog" name="addEditRemDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -23,7 +23,7 @@
       <enum>QLayout::SetMinAndMaxSize</enum>
      </property>
      <item>
-      <widget class="QCalendarWidget" name="addDlgCalendarWidget">
+      <widget class="QCalendarWidget" name="addEditRemDlgCalendarWidget">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
          <horstretch>0</horstretch>
@@ -35,17 +35,31 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item alignment="Qt::AlignHCenter">
-        <widget class="QPushButton" name="addDlgCatpushButton">
+        <widget class="QPushButton" name="addEditRemDlgCatpushButton">
          <property name="cursor">
           <cursorShape>PointingHandCursor</cursorShape>
          </property>
          <property name="text">
           <string>Edit Categories</string>
          </property>
+         <property name="icon">
+          <iconset resource="../icons.qrc">
+           <normaloff>:/icons/icons/open-window-black.png</normaloff>:/icons/icons/open-window-black.png</iconset>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="addEditRemDlgCompletecheckBox">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="text">
+          <string>Completed</string>
+         </property>
         </widget>
        </item>
        <item alignment="Qt::AlignRight">
-        <widget class="QLabel" name="addDlgTimeLabel">
+        <widget class="QLabel" name="addEditRemDlgTimeLabel">
          <property name="text">
           <string/>
          </property>
@@ -56,12 +70,12 @@
           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
          </property>
          <property name="buddy">
-          <cstring>addDlgTimeEdit</cstring>
+          <cstring>addEditRemDlgTimeEdit</cstring>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QTimeEdit" name="addDlgTimeEdit">
+        <widget class="QTimeEdit" name="addEditRemDlgTimeEdit">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
            <horstretch>0</horstretch>
@@ -79,7 +93,7 @@
       </layout>
      </item>
      <item>
-      <widget class="QTextEdit" name="addDlgTextEdit">
+      <widget class="QTextEdit" name="addEditRemDlgTextEdit">
        <property name="font">
         <font>
          <italic>true</italic>
@@ -87,6 +101,12 @@
        </property>
        <property name="cursor" stdset="0">
         <cursorShape>IBeamCursor</cursorShape>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QTextEdit{
+   background-color: rgb(140, 250, 255);
+	color: black;
+}</string>
        </property>
        <property name="html">
         <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
@@ -98,7 +118,7 @@ p, li { white-space: pre-wrap; }
       </widget>
      </item>
      <item>
-      <widget class="QDialogButtonBox" name="addDlgButtonBox">
+      <widget class="QDialogButtonBox" name="addEditRemDlgButtonBox">
        <property name="cursor">
         <cursorShape>ArrowCursor</cursorShape>
        </property>
@@ -122,9 +142,9 @@ p, li { white-space: pre-wrap; }
  </resources>
  <connections>
   <connection>
-   <sender>addDlgButtonBox</sender>
+   <sender>addEditRemDlgButtonBox</sender>
    <signal>accepted()</signal>
-   <receiver>addDialog</receiver>
+   <receiver>addEditRemDialog</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -138,9 +158,9 @@ p, li { white-space: pre-wrap; }
    </hints>
   </connection>
   <connection>
-   <sender>addDlgButtonBox</sender>
+   <sender>addEditRemDlgButtonBox</sender>
    <signal>rejected()</signal>
-   <receiver>addDialog</receiver>
+   <receiver>addEditRemDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

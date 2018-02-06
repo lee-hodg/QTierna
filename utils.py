@@ -36,12 +36,12 @@ def get_utc_now():
     return pytz.utc.localize(datetime.utcnow())
 
 
-def dt2str(dt):
+def dt2str(dt, date_format='%Y-%m-%d %H:%M'):
     '''
     Convert a datetime obj to string with format '%Y-%m-%d %H:%M'
     (saves a little typing, given we always use this format)
     '''
-    return dt.strftime('%Y-%m-%d %H:%M')
+    return dt.strftime(date_format)
 
 
 def localstr2utc(localstr, time_zone, date_format='%Y-%m-%d %H:%M'):

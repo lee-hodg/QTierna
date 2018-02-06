@@ -78,7 +78,7 @@ class Reminder(Base):
     #     return m.hexdigest()
 
     def __repr__(self):
-        return '<Reminder due %s note %s>' % (self.due, smart_truncate(self.note, 100))
+        return '<Reminder id: %s, complete: %s, due: %s,  note: %s>' % (self.reminder_id, self.complete, self.due, smart_truncate(self.note, 100))
 
     def as_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'mainWindow_ver7.ui'
+# Form implementation generated from reading ui file 'mainWindow_ver8.ui'
 #
-# Created: Sun Feb  4 14:49:24 2018
+# Created: Mon Feb  5 20:43:54 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -150,8 +150,6 @@ class Ui_mainWindow(object):
         self.actionExport_Data.setObjectName("actionExport_Data")
         self.actionExit = QtGui.QAction(mainWindow)
         self.actionExit.setObjectName("actionExit")
-        self.actionExit_2 = QtGui.QAction(mainWindow)
-        self.actionExit_2.setObjectName("actionExit_2")
         self.actionAdd_Reminder = QtGui.QAction(mainWindow)
         icon7 = QtGui.QIcon()
         icon7.addPixmap(QtGui.QPixmap(":/icons/icons/circle-add_white.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -176,10 +174,16 @@ class Ui_mainWindow(object):
         icon10.addPixmap(QtGui.QPixmap(":/icons/icons/edit_white.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.actionEdit_Reminder.setIcon(icon10)
         self.actionEdit_Reminder.setObjectName("actionEdit_Reminder")
+        self.actionAdd_Category = QtGui.QAction(mainWindow)
+        self.actionAdd_Category.setObjectName("actionAdd_Category")
+        self.actionEdit_Category = QtGui.QAction(mainWindow)
+        self.actionEdit_Category.setObjectName("actionEdit_Category")
+        self.actionDelete_Category = QtGui.QAction(mainWindow)
+        self.actionDelete_Category.setObjectName("actionDelete_Category")
         self.menuFile.addAction(self.actionImport_Data)
         self.menuFile.addAction(self.actionExport_Data)
         self.menuFile.addSeparator()
-        self.menuFile.addAction(self.actionExit_2)
+        self.menuFile.addAction(self.actionExit)
         self.menuAbout.addAction(self.actionHelp)
         self.menuAbout.addSeparator()
         self.menuAbout.addAction(self.actionAbout)
@@ -187,6 +191,10 @@ class Ui_mainWindow(object):
         self.menuReminder.addAction(self.actionEdit_Reminder)
         self.menuReminder.addAction(self.actionRemove_Reminder)
         self.menuReminder.addSeparator()
+        self.menuReminder.addSeparator()
+        self.menuReminder.addAction(self.actionAdd_Category)
+        self.menuReminder.addAction(self.actionEdit_Category)
+        self.menuReminder.addAction(self.actionDelete_Category)
         self.menuReminder.addSeparator()
         self.menuReminder.addAction(self.actionPreferences)
         self.mainMenubar.addAction(self.menuFile.menuAction())
@@ -232,7 +240,6 @@ class Ui_mainWindow(object):
         self.actionExport_Data.setStatusTip(QtGui.QApplication.translate("mainWindow", "Export Reminders", None, QtGui.QApplication.UnicodeUTF8))
         self.actionExport_Data.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+E", None, QtGui.QApplication.UnicodeUTF8))
         self.actionExit.setText(QtGui.QApplication.translate("mainWindow", "Exit", None, QtGui.QApplication.UnicodeUTF8))
-        self.actionExit_2.setText(QtGui.QApplication.translate("mainWindow", "Exit", None, QtGui.QApplication.UnicodeUTF8))
         self.actionAdd_Reminder.setText(QtGui.QApplication.translate("mainWindow", "Add Reminder", None, QtGui.QApplication.UnicodeUTF8))
         self.actionAdd_Reminder.setStatusTip(QtGui.QApplication.translate("mainWindow", "Add Reminder", None, QtGui.QApplication.UnicodeUTF8))
         self.actionAdd_Reminder.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+A", None, QtGui.QApplication.UnicodeUTF8))
@@ -246,5 +253,8 @@ class Ui_mainWindow(object):
         self.actionEdit_Reminder.setText(QtGui.QApplication.translate("mainWindow", "Edit Reminder", None, QtGui.QApplication.UnicodeUTF8))
         self.actionEdit_Reminder.setStatusTip(QtGui.QApplication.translate("mainWindow", "Edit selected reminder", None, QtGui.QApplication.UnicodeUTF8))
         self.actionEdit_Reminder.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+E", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionAdd_Category.setText(QtGui.QApplication.translate("mainWindow", "Add Category", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionEdit_Category.setText(QtGui.QApplication.translate("mainWindow", "Edit Category", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionDelete_Category.setText(QtGui.QApplication.translate("mainWindow", "Delete Category", None, QtGui.QApplication.UnicodeUTF8))
 
 import icons_rc

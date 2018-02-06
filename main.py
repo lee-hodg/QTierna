@@ -2,407 +2,394 @@
 __appname__ = "QTierna"
 __module__ = "main"
 
-from PySide.QtCore import *
-from PySide.QtGui import *
+from PySide import QtCore, QtGui
 from datetime import datetime
 from tzlocal import get_localzone
 from utils import str2bool, bool2str, dt2str, utcstr2local, smart_truncate
-from models import Reminder, Category, Base
-from sqlalchemy.sql import func
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import exc
 import sys
-import time
 import arrow
 import pytz
-# import re
-import os
 import json
 import io
 
-
 from setup_logging import logger
+from sqlalchemy import func
+from setup_db import session_scope, db_create_tables, db_drop_all_tables
+from models import Reminder, Category
 
-from ui_files import mainWindow, prefDialog, aboutDialog, notificationDialog, addCatDialog
-
-from add_dlg import AddEditDialog
-
-if 'win' in sys.platform.lower():
-    appDataPath = os.path.join(os.environ["APPDATA"], __appname__)
-else:
-    appDataPath = os.path.join(os.environ["HOME"],  __appname__)
-
-if not os.path.exists(appDataPath):
-    try:
-        os.makedirs(appDataPath)
-    except Exception as e:
-        appDataPath = os.getcwd()
-
-db_path = os.path.join(appDataPath, "reminders.db")
-engine = create_engine('sqlite:///%s' % db_path, echo=False)
-Session = sessionmaker(bind=engine)
+from ui_files import mainWindow
+from addedit_reminder_dlg import AddEditRemDialog
+from pref_dlg import PrefDialog
+from notification_dlg import NotificationDialog
+from about_dlg import AboutDialog
+from addedit_category_dlg import AddEditCatDialog
 
 
-class AddCatDialog(QDialog, addCatDialog.Ui_addCatDialog):
-
-    # Will refresh tree of categories when we add
-    categories_changed = Signal()
-
-    def __init__(self, session, existing_cat=None, parent=None):
-        super(AddCatDialog, self).__init__(parent)
-        self.setupUi(self)
-
-        if existing_cat:
-            self.category = existing_cat
-            self.addCatLineEdit.setText(self.category.category_name)
-        else:
-            self.category = Category()
-
-        # SQL Alchemy session
-        self.session = session
-
-        # Some validation
-        self.addCatLineEdit.setMaxLength(50)
-        self.addCatButtonBox.button(QDialogButtonBox.Save).setEnabled(False)
-        self.addCatLineEdit.textChanged.connect(self.disableButton)
-
-    @Slot()
-    def disableButton(self):
-        '''Only enable add cat button when category above min length'''
-        if len(self.addCatLineEdit.text().strip()) > 0 and len(self.addCatLineEdit.text().strip()) <= 50:
-            self.addCatButtonBox.button(QDialogButtonBox.Save).setEnabled(True)
-        else:
-            self.addCatButtonBox.button(QDialogButtonBox.Save).setEnabled(False)
-
-    def accept(self):
-        # Override accept so we can first validate
-        if self.is_valid():
-            self.category.category_name = self.addCatLineEdit.text().strip()
-            try:
-                self.session.add(self.category)
-                self.session.commit()
-                logger.debug('Added cat %s to db' % self.category.category_name)
-            except exc.IntegrityError as int_exc:
-                self.session.rollback()
-                logger.error(int_exc)
-                QMessageBox.warning(self, "Already exists warning", unicode('This category already exists'))
-                self.addCatLineEdit.setFocus()
-                self.selectAll()
-                return
-            else:
-                # All good, accept after triggering tree refresh with sig
-                self.categories_changed.emit()
-                QDialog.accept(self)
-
-    def is_valid(self):
-        '''
-        Check valid cat
-            Not existing (let the db integrity error deal with that)
-            Not a reserved word
-            Not empty string and not above 30 chars long(let the disable/enable save btn deal with that)
-        '''
-        category_name = self.addCatLineEdit.text().strip()
-        if category_name.lower().strip() in ['all', 'complete', 'uncategorized', 'categories', 'category']:
-            QMessageBox.warning(self, "Reserved warning", unicode("Choose a different name"))
-            return False
-        return True
-
-
-class AboutDialog(QDialog, aboutDialog.Ui_aboutDialog):
-
-    def __init__(self, parent=None):
-        super(AboutDialog, self).__init__(parent)
-        self.setupUi(self)
-
-
-class NotificationDialog(QDialog, notificationDialog.Ui_Dialog):
-
-    def __init__(self, parent=None):
-        super(NotificationDialog, self).__init__(parent)
-        self.setupUi(self)
-
-
-class PrefDialog(QDialog, prefDialog.Ui_prefDialog):
-
-    time_zone_changed = Signal(str)
-
-    def __init__(self, parent=None, minimize=True, time_zone=None):
-        super(PrefDialog, self).__init__(parent)
-        self.setupUi(self)
-        self.time_zone = time_zone
-        if self.time_zone is None:
-            self.time_zone = get_localzone()
-
-        # Show current zone setting
-        self.tzLineEdit.setText(self.time_zone.zone)
-
-        # Prefs for min to systray and hiding completed reminders
-        self.minimizeCheckBox.setChecked(minimize)
-        # self.hideCompleteCheckBox.setChecked(showcomplete)
-
-        # Hide the listwidget to begin
-        # self.tzListWidget.setHidden(True)
-        self.tzListWidget.setVisible(False)
-        self.adjustSize()
-
-        # Signal
-        # self.tzComboBox.currentIndexChanged.connect(self.handle_time_zone_changed)
-        self.tzLineEdit.textChanged.connect(self.update_zones_list)
-        self.tzListWidget.itemSelectionChanged.connect(self.handle_time_zone_changed)
-
-    def update_zones_list(self):
-        # self.tzListWidget.setHidden(False)
-        query = self.tzLineEdit.text().strip()
-        self.tzListWidget.clear()
-        if len(query) > 0:
-            # Populate the tz combo box with all common pytz timezones
-            def zone_filter(tzone):
-                try:
-                    region, country = tzone.split('/')
-                    if (region.lower().startswith(query.lower()) or country.lower().startswith(query.lower())
-                       or tzone.lower().startswith(query.lower())):
-                        return True
-                except:
-                    if tzone.lower().startswith(query.lower()):
-                        return True
-                return False
-            zones = filter(zone_filter, pytz.common_timezones)
-        else:
-            zones = pytz.common_timezones
-        if len(zones) > 0:
-            self.tzListWidget.setVisible(True)
-            self.adjustSize()
-            for tz in zones:
-                item = QListWidgetItem(tz, self.tzListWidget)
-                if self.time_zone.zone == tz:
-                    item.setSelected(True)
-
-    def handle_time_zone_changed(self):
-        '''
-        So we can send our own data
-        '''
-        if self.tzListWidget.currentItem():
-            self.time_zone = self.tzListWidget.currentItem().text()
-            logger.debug('Change tz to %s' % self.time_zone)
-            self.time_zone_changed.emit(self.time_zone)
-
-
-class Main(QMainWindow, mainWindow.Ui_mainWindow):
+class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
 
     def __init__(self, parent=None):
         super(Main, self).__init__(parent)
         self.setupUi(self)
 
-        # SQLAlchemy
-        self.session = Session()
-        Base.metadata.create_all(engine)
+        # Create the database tables if they don't exist
+        db_create_tables()
 
-        # self.notified_color = QColor(115, 235, 174, 127)
-        self.soon_color = QColor(255, 0, 0, 127)
+        # ################### Saved app settings ########################
+        self.settings = QtCore.QSettings(QtCore.QSettings.IniFormat, QtCore.QSettings.UserScope, "QTierna", "QTierna")
+        self.minimizeToTray = str2bool(self.settings.value("minimizeToTray", True))  # Exit behaviour
+        self.time_zone = pytz.timezone(self.settings.value("time_zone", get_localzone().zone))
+        logger.debug('Settings loaded from %s. Initialized time_zone: %s' % (self.settings.fileName(), self.time_zone))
 
-        # Stop table being editable by user
-        self.mainTableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        # Col Widths
+        # ############# Reminders table config ##########################
+        self.soon_color = QtGui.QColor(255, 0, 0, 127)  # Reminder soon due
+        self.mainTableWidget.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)  # Don't let user edit
+        # Column widths
         total_width = self.mainTableWidget.width()
         self.mainTableWidget.setColumnWidth(0, (total_width/10.0)*2)
         self.mainTableWidget.setColumnWidth(1, (total_width/10.0)*2)
         self.mainTableWidget.setColumnWidth(2, (total_width/10.0)*6)
-        # Hidden UTC and PK cols (to store full date and PK)
+        # Hidden UTC and reminder ID columns
         self.mainTableWidget.setColumnWidth(3, 0)
         self.mainTableWidget.setColumnHidden(3, True)
         self.mainTableWidget.setColumnWidth(4, 0)
         self.mainTableWidget.setColumnHidden(4, True)
+        # Table signals
         self.mainTableWidget.itemDoubleClicked.connect(self.table_dbl_click)
 
-        self.settings = QSettings(QSettings.IniFormat, QSettings.UserScope, "QTierna", "QTierna")
-        self.minimizeToTray = str2bool(self.settings.value("minimizeToTray", True))
-        self.showcompleted = str2bool(self.settings.value("showcompleted", True))
-        self.time_zone = pytz.timezone(self.settings.value("time_zone", get_localzone().zone))
-        logger.debug('Initialized time_zone: %s' % self.time_zone)
+        # ########### Categories tree config #############################
+        # Font bold to oblig cats, not sure why my qt designerui didnt apply
+        myFont = QtGui.QFont()
+        myFont.setBold(True)
+        self.mainTreeWidget.topLevelItem(0).setFont(0, myFont)
+        self.mainTreeWidget.topLevelItem(0).child(0).setFont(0, myFont)
+        self.mainTreeWidget.topLevelItem(0).child(1).setFont(0, myFont)
+        self.mainTreeWidget.topLevelItem(0).child(2).setFont(0, myFont)
+        # Tree signals
+        self.mainTreeWidget.itemSelectionChanged.connect(self.refresh_table)
 
-        self.actionAdd_Reminder.triggered.connect(self.addedit_button_clicked)
-        self.actionEdit_Reminder.triggered.connect(self.addedit_button_clicked)
-        self.actionRemove_Reminder.triggered.connect(self.remove_button_clicked)
+        # ##################### Actions ####################################
+        self.actionAdd_Reminder.triggered.connect(self.addedit_rem_action_triggered)
+        self.actionEdit_Reminder.triggered.connect(self.addedit_rem_action_triggered)
+        self.actionRemove_Reminder.triggered.connect(self.remove_rem_action_triggered)
+        self.actionEdit_Category.triggered.connect(self.addedit_cat_action_triggered)
+        self.actionDelete_Category.triggered.connect(self.remove_cat_action_triggered)
+        self.actionExport_Data.triggered.connect(self.export_action_triggered)
+        self.actionImport_Data.triggered.connect(self.import_action_triggered)
+        self.actionPreferences.triggered.connect(self.preferences_action_triggered)
+        self.actionAbout.triggered.connect(self.about_action_triggered)
 
+        # ##################### Worker thread #############################
+        # Worker to run the eternal loop to check for due reminders
         # I'm doing it with moveToThread in this manner, rather than
         # just making the Worker class inherit from QThread
-        # as apparently this is best practice now: https://mayaposch.wordpress.com/2011/11/01/how-to-really-truly-use-qthreads-the-full-explanation/
+        # as apparently this is best practice now:
+        #  https://mayaposch.wordpress.com/2011/11/01/how-to-really-truly-use-qthreads-the-full-explanation/
         # Alternatively put this in the if __main__ section with minor alts
-        self.workerThread = QThread()
+        self.workerThread = QtCore.QThread()
         self.worker = Worker()
         self.worker.moveToThread(self.workerThread)
         self.workerThread.started.connect(self.worker.check_reminders_loop)
-        self.worker.reminderisdue.connect(self.launch_reminder)
-        self.worker.refreshdates.connect(self.refreshdates)
+        self.worker.reminderisdue.connect(self.launch_notification)
+        self.worker.refresh_human_dates.connect(self.refresh_human_dates)  # Keep the humanized due dates refreshed
         self.workerThread.start()
 
+        # #################### SysTray icon, menu ###########################
         # Init QSystemTrayIcon
-        self.tray_icon = QSystemTrayIcon(self)
-        # self.tray_icon.setIcon(self.style().standardIcon(QStyle.SP_ComputerIcon))
-        self.tray_icon.setIcon(QIcon("icons/alarm-clock-white.png"))
-        # '''
-        #     Define and add steps to work with the system tray icon
-        #     show - show window
-        #     hide - hide window
-        #     exit - exit from application
-        # '''
-        show_action = QAction("Show", self)
-        quit_action = QAction("Exit", self)
-        hide_action = QAction("Hide", self)
+        self.tray_icon = QtGui.QSystemTrayIcon(self)
+        self.tray_icon.setIcon(QtGui.QIcon("icons/alarm-clock-white.png"))
+        show_action = QtGui.QAction("Show", self)
+        quit_action = QtGui.QAction("Exit", self)
+        hide_action = QtGui.QAction("Hide", self)
         show_action.triggered.connect(self.show)
         hide_action.triggered.connect(self.hide)
-        quit_action.triggered.connect(qApp.quit)
-        tray_menu = QMenu()
+        quit_action.triggered.connect(QtGui.qApp.quit)
+        tray_menu = QtGui.QMenu()
         tray_menu.addAction(show_action)
         tray_menu.addAction(hide_action)
         tray_menu.addAction(quit_action)
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.show()
 
-        self.actionExport_Data.triggered.connect(self.export_action_triggered)
-        self.actionImport_Data.triggered.connect(self.import_action_triggered)
-        self.actionPreferences.triggered.connect(self.preferences_action_triggered)
-        self.actionAbout.triggered.connect(self.about_action_triggered)
-        self.actionExit_2.triggered.connect(self.exit_action_triggered)
-
-        # Popup context menu when click on tree widget for add/edit/rem cat
-        self.mainTreeWidget.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.mainTreeWidget.customContextMenuRequested.connect(self.on_context_menu)
-        self.create_popup_menu(parent=self)
-
-        # Set bold to our oblig cats in tree
-        myFont = QFont()
-        myFont.setBold(True)
-        self.mainTreeWidget.topLevelItem(0).setFont(0, myFont)
-        self.mainTreeWidget.topLevelItem(0).child(0).setFont(0, myFont)
-        self.mainTreeWidget.topLevelItem(0).child(1).setFont(0, myFont)
-        self.mainTreeWidget.topLevelItem(0).child(2).setFont(0, myFont)
-
+        # ################### CONTEXT MENUS ##################################
+        # Popup context menu when right-click on tree widget for add/edit/rem cat
+        self.mainTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.mainTreeWidget.customContextMenuRequested.connect(self.on_tree_context_menu)
+        self.tree_popup_menu = QtGui.QMenu(self)
+        self.tree_popup_menu.addAction("New category", self.addedit_cat_action_triggered)
+        self.tree_popup_menu.addAction("Rename category", self.addedit_cat_action_triggered)
+        self.tree_popup_menu.addSeparator()
+        self.tree_popup_menu.addAction("Delete category", self.remove_cat_action_triggered)
         # Popup context menu when right-click on row on the table widget for
         # add/edit/remove reminder
-        self.mainTableWidget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.mainTableWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.mainTableWidget.customContextMenuRequested.connect(self.on_table_context_menu)
-        self.create_table_popup_menu(parent=self)
-
-        # Wire up clicking on categories in tree
-        # The idea is that initially table loads with all non-complete
-        # reminders, but uncategorized gives those with category,
-        # complete gives those complete, and other custom user categories
-        # show those reminders belonging to the category
-        # refresh_table will have to take some keywords
-        # show_complete=False, category=None
-        self.refresh_tree()
-        self.mainTreeWidget.itemSelectionChanged.connect(self.refresh_table)
-
-        self.refresh_table()
-
-    def table_dbl_click(self, item):
-        row = item.row()
-        pk = self.mainTableWidget.item(row, 4).text()
-        self.mainTableWidget.clearSelection()
-        self.mainTableWidget.selectRow(row)
-        logger.debug('Table row %s with pk %s dbl clicked' % (row, pk))
-        self.actionEdit_Reminder.triggered.emit()
-
-    def new_category(self):
-        logger.debug('New category')
-        # text, ok = QInputDialog.getText(self, "Add Category", "Category:")
-        dlg = AddCatDialog(self.session, parent=self)
-        dlg.categories_changed.connect(self.handle_categories_changed)
-        # The placeholder text doesn't show because focus is initially
-        # on the lineedit as the sole element. Could do something like
-        dlg.setFocus()
-        if dlg.exec_():
-            logger.debug('Added new category...')
-
-    def edit_category(self):
-        logger.debug('Edit category')
-        # Selected category
-        cat = self.mainTreeWidget.currentItem()
-        category_name = cat.text(self.mainTreeWidget.currentColumn())
-        category = self.session.query(Category).filter(Category.category_name == category_name).first()
-        dlg = AddCatDialog(self.session, existing_cat=category, parent=self)
-        dlg.categories_changed.connect(self.handle_categories_changed)
-        # The placeholder text doesn't show because focus is initially
-        # on the lineedit as the sole element. Could do something like
-        dlg.setFocus()
-        if dlg.exec_():
-            logger.debug('Added new category...')
-
-    def delete_category(self):
-        logger.debug('Delete category')
-        cat = self.mainTreeWidget.currentItem()
-        category_name = cat.text(self.mainTreeWidget.currentColumn())
-        self.session.query(Category).filter(Category.category_name == category_name).delete()
-        self.session.commit()
-        self.refresh_tree()
-        self.refresh_table()
-        QMessageBox.info(self, "Deleted category", "Successfully deleted category %s" % category_name)
-
-    def create_popup_menu(self, parent=None):
-        self.popup_menu = QMenu(parent)
-        self.popup_menu.addAction("New category", self.new_category)
-        self.popup_menu.addAction("Rename category", self.edit_category)
-        self.popup_menu.addSeparator()
-        self.popup_menu.addAction("Delete category", self.delete_category)
-
-    def on_context_menu(self, pos):
-        logger.debug('Hello context menu')
-        node = self.mainTreeWidget.mapToGlobal(pos)
-        # By defualt the rename/delete actions are disabled
-        # New, Rename, Divider, Delete are actions
-        self.popup_menu.actions()[1].setEnabled(False)
-        self.popup_menu.actions()[3].setEnabled(False)
-        # Check if user custom category is selected and if not disable rename/delete
-        # category_name = None
-        cat = self.mainTreeWidget.currentItem()
-        root = self.mainTreeWidget.topLevelItem(0)
-        if cat and cat.parent():
-            # This means a category selected that isn't the root 'Categories'
-            indx = root.indexOfChild(cat)
-            # category_name = cat.text(self.mainTreeWidget.currentColumn())
-            if indx > 2:
-                # Enable edit and delete for user categories only
-                # logger.debug([a.text() for a in self.popup_menu.actions()])
-                self.popup_menu.actions()[1].setEnabled(True)
-                # self.popup_menu.actions()[2].setEnabled(True)
-                self.popup_menu.actions()[3].setEnabled(True)
-        self.popup_menu.exec_(node)
-
-    # def new_reminder_ctx(self):
-    #     logger.debug('New reminder ctx menu')
-
-    # def edit_reminder_ctx(self):
-    #     logger.debug('Edit reminder')
-
-    # def delete_reminder_ctx(self):
-    #     logger.debug('Delete reminder')
-
-    def create_table_popup_menu(self, parent=None):
-        self.table_popup_menu = QMenu(parent)
-        # self.table_popup_menu.addAction("New reminder", self.new_reminder_ctx)
+        self.table_popup_menu = QtGui.QMenu(self)
         self.table_popup_menu.addAction(self.actionAdd_Reminder)
         self.table_popup_menu.addAction(self.actionEdit_Reminder)
         self.table_popup_menu.addSeparator()
         self.table_popup_menu.addAction(self.actionRemove_Reminder)
 
+        # ############ Initial load of the tree and table ###################
+        self.refresh_tree()
+        self.refresh_table()
+
+    # #################### Main Table slots #################################
+    def table_dbl_click(self, item):
+        row = item.row()
+        # reminder_id = self.mainTableWidget.item(row, 4).text()
+        # Ensure only the item double-clicked is selected
+        self.mainTableWidget.clearSelection()
+        self.mainTableWidget.selectRow(row)
+        # Trigger the edit reminder triggered signal which will edit selected row
+        self.actionEdit_Reminder.triggered.emit()
+
+    # ###################### Action slots ###################################
+    def addedit_rem_action_triggered(self):
+        """Opens the add or edit reminder dialog. For edit would be same but with edit_reminder_id"""
+        action = self.sender()
+        logger.debug('Sender is %s' % action.objectName())
+        if action is None or not isinstance(action, QtGui.QAction):
+            return None
+
+        reminder_id = None
+        if action.objectName() == 'actionEdit_Reminder':
+            # Ensure only one row selected, get item for that row
+            logger.debug('User wants to edit reminder')
+            indices = self.mainTableWidget.selectionModel().selectedRows()
+            selected_rows = [index.row() for index in indices]
+            if len(selected_rows) == 1:
+                selected_row = selected_rows[0]
+                reminder_id = self.mainTableWidget.item(selected_row, 4).text()
+                logger.debug('Reminder with id %s' % reminder_id)
+            else:
+                QtGui.QMessageBox.warning(self, 'Select rows', 'You must select one row.')
+                return
+
+        dialog = AddEditRemDialog(self.time_zone, edit_reminder_id=reminder_id, parent=self)
+        dialog.categories_changed.connect(self.refresh_tree)
+        if dialog.exec_():
+            # Focus on 'All' category so we can see new reminder has been added
+            root = self.mainTreeWidget.topLevelItem(0)
+            all_item = root.child(0)
+            self.mainTreeWidget.setCurrentItem(all_item)
+            self.refresh_table()
+
+    def remove_rem_action_triggered(self):
+        """Removes the selected row from the mainTable"""
+        indices = self.mainTableWidget.selectionModel().selectedRows()
+        selected_rows = [index.row() for index in indices]
+        if selected_rows:
+            # Sorted is important so we delete last in last first
+            # and don't mess up the indexing of iterator
+            for row in sorted(selected_rows, reverse=True):
+                reminder_id = self.mainTableWidget.item(row, 4).text()
+                with session_scope() as session:
+                    reminder = session.query(Reminder).filter(Reminder.reminder_id == reminder_id).one()
+                    session.delete(reminder)
+                self.mainTableWidget.removeRow(row)
+            QtGui.QMessageBox.information(self, 'Removed', 'Removed %i reminders.' % len(selected_rows))
+        else:
+            QtGui.QMessageBox.warning(self, 'Select rows', 'You must select reminder(s) for removal.')
+
+    def addedit_cat_action_triggered(self):
+        '''
+        Add or edit a category
+        '''
+        # Determine if add/edit
+        action = self.sender()
+        logger.debug('addedit cat action with sender %s' % action.objectName())
+        if action is None or not isinstance(action, QtGui.QAction):
+            return None
+
+        if action.objectName() == 'actionEdit_Categoryr':
+            logger.debug('User wants to edit category')
+            # Selected category
+            cat = self.mainTreeWidget.currentItem()
+            root = self.mainTreeWidget.topLevelItem(0)
+            if cat:
+                if cat.parent() and root.indexOfChild(cat) > 2:
+                    category_name = cat.text(self.mainTreeWidget.currentColumn())
+                    category_id = None
+                    with session_scope() as session:
+                        category_id = session.query(Category.category_id).filter(Category.category_name == category_name).scalar()
+                    if category_id is None:
+                        QtGui.QMessageBox.warning(self, "Does not exist", "Category was not found with name %s" % category_name)
+                    dlg = AddEditCatDialog(edit_cat_id=category_id, parent=self)
+                    dlg.categories_changed.connect(self.refresh_tree)
+                    # The placeholder text doesn't show because focus is initially so do
+                    dlg.setFocus()
+                    if dlg.exec_():
+                        logger.debug('Edited category %s' % category_name)
+                else:
+                    QtGui.QMessageBox.warning(self, "Select category", "You must select a category other than default categories.")
+            else:
+                QtGui.QMessageBox.warning(self, "Select category", "You must select a category.")
+        elif action.objectName() == 'actionAdd_Category':
+            dlg = AddEditCatDialog(parent=self)
+            dlg.categories_changed.connect(self.refresh_tree)
+            # The placeholder text doesn't show because focus is initially
+            # on the lineedit as the sole element. Could do something like
+            dlg.setFocus()
+            if dlg.exec_():
+                logger.debug('Added new category...')
+
+    def remove_cat_action_triggered(self):
+        '''
+        Delete the category selected in the tree.
+
+        The user must have selected a category and it must be one of
+        the non-default categories (not [all, complete, uncategorized])
+        '''
+        logger.debug('Delete category')
+        cat = self.mainTreeWidget.currentItem()
+        root = self.mainTreeWidget.topLevelItem(0)
+        if cat:
+            if cat.parent() and root.indexOfChild(cat) > 2:
+                category_name = cat.text(self.mainTreeWidget.currentColumn())
+                with session_scope() as session:
+                    session.query(Category).filter(Category.category_name == category_name).delete()
+                self.refresh_tree()
+                self.refresh_table()
+                QtGui.QMessageBox.information(self, "Deleted category", "Successfully deleted category %s" % category_name)
+            else:
+                QtGui.QMessageBox.warning(self, "Select category", "You must select a category other than default categories.")
+        else:
+            QtGui.QMessageBox.warning(self, "Select category", "You must select a category.")
+
+    def import_action_triggered(self):
+        '''Import json to db'''
+
+        dbFile = QtGui.QFileDialog.getOpenFileName(parent=None,
+                                                   caption="Import database to a file",
+                                                   directory=".", filter="QTierna JSON (*.json)")
+        if dbFile[0]:
+            try:
+                with open(dbFile[0], "r") as jsonfile:
+                    jdata = json.load(jsonfile)
+                    # Clear db
+                    db_drop_all_tables()
+                    db_create_tables()
+                    # Categories
+                    categories = jdata['categories']
+                    category_instances = []
+                    with session_scope() as session:
+                        for category in categories:
+                            category_instance = Category(category_id=category['category_id'],
+                                                         category_name=category['category_name'])
+                            category_instances.append(category_instance)
+                            session.add(category_instance)
+                            session.commit()
+                        # Reminders
+                        reminders = jdata['reminders']
+                        for reminder in reminders:
+                            reminder_categories = filter(lambda c: c.category_id in reminder['category_ids'], category_instances)
+                            reminder_instance = Reminder(reminder_id=reminder['reminder_id'],
+                                                         due=reminder['due'],
+                                                         complete=reminder['complete'],
+                                                         note=reminder['note'])
+                            reminder_instance.categories = reminder_categories
+                            session.add(reminder_instance)
+                    self.refresh_table()
+                    self.refresh_tree()
+                    with session_scope() as session:
+                        category_count = session.query(Category).count()
+                        reminder_count = session.query(Reminder).count()
+                    msg = ("Successfully imported %i reminders and %i categories from file\r\n%s"
+                           % (reminder_count, category_count, (QtCore.QDir.toNativeSeparators(dbFile[0]))))
+                    QtGui.QMessageBox.information(self, __appname__, msg)
+            except Exception as importexc:
+                QtGui.QMessageBox.critical(self, __appname__, "Error importing file, error is\r\n" + str(importexc))
+                return
+
+    def export_action_triggered(self):
+        """Database export handler"""
+
+        # Build JSON
+        jdump = {'timestamp': arrow.utcnow().timestamp, 'reminders': [], 'categories': []}
+        with session_scope() as session:
+            for r in session.query(Reminder).all():
+                rdict = r.as_dict()
+                rdict['category_ids'] = [c.category_id for c in r.categories]
+                jdump['reminders'].append(rdict)
+            jdump['categories'] = [c.as_dict() for c in session.query(Category).all()]
+
+        dbFile = QtGui.QFileDialog.getSaveFileName(parent=None,
+                                                   caption="Export database to a file",
+                                                   directory=".", filter="QTierna JSON (*.json)")
+        if dbFile[0]:
+            try:
+                with io.open(dbFile[0], 'w', encoding='utf-8') as f:
+                    logger.debug(jdump)
+                    f.write(json.dumps(jdump, ensure_ascii=False))
+                    msg = ("Successfully exported %i reminders and %i categories to a file\r\n%s"
+                           % (len(jdump['reminders']), len(jdump['categories']), (QtCore.QDir.toNativeSeparators(dbFile[0]))))
+                    QtGui.QMessageBox.information(self, __appname__, msg)
+            except Exception as xportexc:
+                QtGui.QMessageBox.critical(self, __appname__, "Error exporting file, error is\r\n" + str(xportexc))
+                return
+
+    def preferences_action_triggered(self):
+        """Fires up the Preferences dialog"""
+        dlg = PrefDialog(minimize=self.minimizeToTray, time_zone=self.time_zone)
+        # Still need to wire up the combo timezone selection
+        dlg.minimizeCheckBox.stateChanged.connect(self.set_minimize_behavior)
+        # dlg.hideCompleteCheckBox.stateChanged.connect(self.show_hide_complete)
+        dlg.time_zone_changed.connect(self.update_time_zone)
+        dlg.exec_()
+
+    def about_action_triggered(self):
+        """Opens the About dialog"""
+        dlg = AboutDialog()
+        dlg.exec_()
+
+    # ################## Context menu slots #################################
+    def on_tree_context_menu(self, pos):
+        '''
+        Show a context menu for adding/editing/deleting categories
+        when user clicks on categories tree
+
+        The actions in the menu are
+            0 New
+            1 Rename
+            2 Divider
+            3 Delete
+
+        By default we disable rename and delete only allowing New until we
+        check if user has selected a valid category, in which case we enable them
+        '''
+        node = self.mainTreeWidget.mapToGlobal(pos)
+        self.tree_popup_menu.actions()[1].setEnabled(False)
+        self.tree_popup_menu.actions()[3].setEnabled(False)
+        cat = self.mainTreeWidget.currentItem()
+        root = self.mainTreeWidget.topLevelItem(0)
+        if cat and cat.parent():
+            # This means a category selected that isn't the root 'Categories'
+            indx = root.indexOfChild(cat)
+            if indx > 2:
+                # Enable edit and delete for user categories only
+                self.tree_popup_menu.actions()[1].setEnabled(True)
+                self.tree_popup_menu.actions()[3].setEnabled(True)
+        self.tree_popup_menu.exec_(node)
+
     def on_table_context_menu(self, pos):
-        logger.debug('Hello table context menu')
+        '''
+        Show the table context menu when user right-clicks on table
+        Actions are
+            0 Add
+            1 Edit
+            2 Divider
+            3 Delete
+
+        By default the Edit and Delete actions are disabled. We check
+        if the user has selected any rows and if they have selected solely
+        one we enable Edit. If they have selected >=1 we enable delete.
+        '''
         node = self.mainTableWidget.mapToGlobal(pos)
-        # By defualt the rename/delete actions are disabled
-        # New, Rename, Divider, Delete are actions
-        self.table_popup_menu.actions()[0].setEnabled(False)
         self.table_popup_menu.actions()[1].setEnabled(False)
         self.table_popup_menu.actions()[3].setEnabled(False)
         indices = self.mainTableWidget.selectionModel().selectedRows()
-        logger.debug('Got %i rows selected' % len(indices))
-        if len(indices) == 0:
-            # Just new
-            self.table_popup_menu.actions()[0].setEnabled(True)
-        elif len(indices) == 1:
-            # Allow new/edit/delete
-            self.table_popup_menu.actions()[0].setEnabled(True)
+        if len(indices) == 1:
+            # Allow edit/delete
             self.table_popup_menu.actions()[1].setEnabled(True)
             self.table_popup_menu.actions()[3].setEnabled(True)
         elif len(indices) >= 2:
@@ -410,8 +397,8 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             self.table_popup_menu.actions()[3].setEnabled(True)
         self.table_popup_menu.exec_(node)
 
-    @Slot()
-    def refreshdates(self):
+    # ################### Refresh slots #######################################
+    def refresh_human_dates(self):
         '''
         Periodically update the human due date column of all rows
         currently in the mainTableWidget
@@ -422,7 +409,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             # Update the human date at (indx, 0) (e.g. "In 25 minutes")
             arrow_utc_dt = arrow.get(utc_datetime_str, 'YYYY-MM-DD HH:mm')
             human_due = arrow_utc_dt.humanize()
-            # self.mainTableWidget.setItem(indx, 0, QTableWidgetItem(human_due))
+            # self.mainTableWidget.setItem(indx, 0, QtGui.QTableWidgetItem(human_due))
             # self.mainTableWidget.item(indx, 0).setToolTip(local_datetime_str)
             self.mainTableWidget.item(indx, 0).setText(human_due)
             hours_before = ((arrow_utc_dt - arrow.utcnow()).total_seconds())/3600.0
@@ -430,17 +417,11 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
                 # Highlight
                 self.mainTableWidget.item(indx, 0).setBackground(self.soon_color)
 
-    def _color_row(self, rowidx, color):
-        '''
-        Color row with index <rowidx> color <color>
-        where <color> is a QColor, e.g. QColor(255, 0, 0, 127)
-        '''
-        for j in range(self.mainTableWidget.columnCount()):
-            self.mainTableWidget.item(rowidx, j).setBackground(color)
-
     def refresh_tree(self):
-        categories = self.session.query(Category.category_name).order_by(Category.category_name).all()
-        categories = [c[0] for c in categories]
+        categories = []
+        with session_scope() as session:
+            categories = session.query(Category.category_name).order_by(Category.category_name).all()
+            categories = [c[0] for c in categories]
         logger.debug('All categories %s' % categories)
         # Find top-level category item
         root = self.mainTreeWidget.topLevelItem(0)
@@ -452,7 +433,7 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
             if i > 2:
                 root.removeChild(root.child(i))
         for category in categories:
-            QTreeWidgetItem(root, [category, ])
+            QtGui.QTreeWidgetItem(root, [category, ])
         # root.addChild(qtwItem.setText(0, 'Nips'))
         # logger.debug('Root: %s' % root)
         # logger.debug('Root parent: %s' % root_parent)
@@ -468,65 +449,63 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
         root = self.mainTreeWidget.topLevelItem(0)
         indx = root.indexOfChild(cat)
         logger.debug('Refreshing table with category %s and Index is %s' % (category_name, indx))
-        if indx == 0 and category_name == 'All':
-            # Selected All
-            reminders = self.session.query(Reminder).filter(Reminder.complete == False).all()
-        elif indx == 1 and category_name == 'Complete':
-            # all completed
-            reverse_dates = True
-            reminders = self.session.query(Reminder).filter(Reminder.complete == True).all()
-        elif indx == 2 and category_name == 'Uncategorized':
-            reminders = self.session.query(Reminder).filter(Reminder.complete == False).filter(~Reminder.categories.any()).all()
-        elif indx > 2 and category_name:
-            reminders = self.session.query(Reminder).filter(Reminder.complete == False).filter(Reminder.categories.any(Category.category_name == category_name)).all()
-        else:
-            # Nothing selected
-            reminders = self.session.query(Reminder).filter(Reminder.complete == False).all()
-        logger.debug('Refreshing table with reminders %s' % reminders)
+        with session_scope() as session:
+            if indx == 0 and category_name == 'All':
+                # Selected All
+                reminders = session.query(Reminder).filter(Reminder.complete == False).all()
+            elif indx == 1 and category_name == 'Complete':
+                # all completed
+                reverse_dates = True
+                reminders = session.query(Reminder).filter(Reminder.complete == True).all()
+                logger.debug('Ran the all completed query...')
+            elif indx == 2 and category_name == 'Uncategorized':
+                reminders = session.query(Reminder).filter(Reminder.complete == False).filter(~Reminder.categories.any()).all()
+            elif indx > 2 and category_name:
+                reminders = session.query(Reminder).filter(Reminder.complete == False).filter(Reminder.categories.any(Category.category_name == category_name)).all()
+            else:
+                # Nothing selected
+                reminders = session.query(Reminder).filter(Reminder.complete == False).all()
+            logger.debug('Refreshing table with reminders %s' % reminders)
 
-        # reminders = sorted(reminders, key=lambda reminder: (reminder.complete, datetime.strptime(reminder.due, '%Y-%m-%d %H:%M')))
-        reminders = sorted(reminders, key=lambda reminder: datetime.strptime(reminder.due, '%Y-%m-%d %H:%M'), reverse=reverse_dates)
-        self.mainTableWidget.setRowCount(0)  # Delete rows ready to repopulate
-        for inx, reminder in enumerate(reminders):
-            # UTC in db
-            utc_datetime_str = reminder.due
-            local_datetime_str = dt2str(utcstr2local(utc_datetime_str, self.time_zone))
-            categories = ', '.join([category.category_name for category in reminder.categories])
-            # We can get beautiful human times with arrow
-            arrow_utc_dt = arrow.get(utc_datetime_str, 'YYYY-MM-DD HH:mm')
-            human_due = arrow_utc_dt.humanize()
-            logger.debug('Reminder had utc due %s and humanize gave %s. arrow utc now %s' % (utc_datetime_str, human_due, arrow.utcnow()))
-            # This would be nice, but I'd lose the exact dt, which would
-            # make it hard when deleting/editing these rows. Could I store
-            # it on hidden column maybe?
-            self.mainTableWidget.insertRow(inx)
-            self.mainTableWidget.setItem(inx, 0, QTableWidgetItem(human_due))
-            self.mainTableWidget.item(inx, 0).setToolTip(local_datetime_str)
-            hours_before = ((arrow_utc_dt - arrow.utcnow()).total_seconds())/3600.0
-            if hours_before <= 24 and hours_before > 0:
-                # Highlight
-                self.mainTableWidget.item(inx, 0).setBackground(self.soon_color)
+            # reminders = sorted(reminders, key=lambda reminder: (reminder.complete, datetime.strptime(reminder.due, '%Y-%m-%d %H:%M')))
+            reminders = sorted(reminders, key=lambda reminder: datetime.strptime(reminder.due, '%Y-%m-%d %H:%M'), reverse=reverse_dates)
+            self.mainTableWidget.setRowCount(0)  # Delete rows ready to repopulate
+            for inx, reminder in enumerate(reminders):
+                # UTC in db
+                utc_datetime_str = reminder.due
+                local_datetime_str = dt2str(utcstr2local(utc_datetime_str, self.time_zone))
+                categories = ', '.join([category.category_name for category in reminder.categories])
+                # We can get beautiful human times with arrow
+                arrow_utc_dt = arrow.get(utc_datetime_str, 'YYYY-MM-DD HH:mm')
+                human_due = arrow_utc_dt.humanize()
+                # logger.debug('Reminder had utc due %s and humanize gave %s. arrow utc now %s' % (utc_datetime_str, human_due, arrow.utcnow()))
+                # This would be nice, but I'd lose the exact dt, which would
+                # make it hard when deleting/editing these rows. Could I store
+                # it on hidden column maybe?
+                self.mainTableWidget.insertRow(inx)
+                self.mainTableWidget.setItem(inx, 0, QtGui.QTableWidgetItem(human_due))
+                self.mainTableWidget.item(inx, 0).setToolTip(local_datetime_str)
+                hours_before = ((arrow_utc_dt - arrow.utcnow()).total_seconds())/3600.0
+                if hours_before <= 24 and hours_before > 0:
+                    # Highlight
+                    self.mainTableWidget.item(inx, 0).setBackground(self.soon_color)
 
-            catItem = QTableWidgetItem(categories)
-            if len(reminder.categories) > 0:
-                # catTip = '<ul style="list-style: none; padding-left: 0;">'
-                # for category in reminder.categories:
-                #     catTip += '<li>%s</li>' % category.category_name
-                # catTip += '</ul>'
-                catTip = u'<font color="black">%s</font>' % '<br/>'.join([c.category_name for c in reminder.categories])
-                catItem.setToolTip(catTip)
-            self.mainTableWidget.setItem(inx, 1, catItem)
-            noteItem = QTableWidgetItem(smart_truncate(reminder.note))
-            noteTip = u"<div style='width: 300px;'>%s</div>" % smart_truncate(reminder.note, length=1000)
-            noteItem.setToolTip(noteTip)
-            self.mainTableWidget.setItem(inx, 2, noteItem)
-            self.mainTableWidget.setItem(inx, 3, QTableWidgetItem(utc_datetime_str))
-            logger.debug('Setting fifth col with %s' % reminder.reminder_id)
-            self.mainTableWidget.setItem(inx, 4, QTableWidgetItem(unicode(reminder.reminder_id)))
-
-            # if reminder.complete:
-            #     # Already notified
-            #     self._color_row(inx, self.notified_color)
+                catItem = QtGui.QTableWidgetItem(categories)
+                if len(reminder.categories) > 0:
+                    # catTip = '<ul style="list-style: none; padding-left: 0;">'
+                    # for category in reminder.categories:
+                    #     catTip += '<li>%s</li>' % category.category_name
+                    # catTip += '</ul>'
+                    catTip = u'<font color="black">%s</font>' % '<br/>'.join([c.category_name for c in reminder.categories])
+                    catItem.setToolTip(catTip)
+                self.mainTableWidget.setItem(inx, 1, catItem)
+                noteItem = QtGui.QTableWidgetItem(smart_truncate(reminder.note))
+                noteTip = u"<div style='width: 300px;'>%s</div>" % smart_truncate(reminder.note, length=1000)
+                noteItem.setToolTip(noteTip)
+                self.mainTableWidget.setItem(inx, 2, noteItem)
+                self.mainTableWidget.setItem(inx, 3, QtGui.QTableWidgetItem(utc_datetime_str))
+                # logger.debug('Setting fifth col with %s' % reminder.reminder_id)
+                self.mainTableWidget.setItem(inx, 4, QtGui.QTableWidgetItem(unicode(reminder.reminder_id)))
 
         # Set the row coloring according to
         if category_name == 'Complete':
@@ -541,263 +520,136 @@ class Main(QMainWindow, mainWindow.Ui_mainWindow):
                 self.mainTableWidget.style().unpolish(self.mainTableWidget)
                 self.mainTableWidget.style().polish(self.mainTableWidget)
 
-    def addedit_button_clicked(self):
-        """Opens the add or edit reminder dialog. For edit would be same but with existing_reminder as Reminder inst"""
-        action = self.sender()
-        logger.debug('Sender is %s' % action.objectName())
-        if action is None or not isinstance(action, QAction):
-            return None
-        reminder = None
-        if action.objectName() == 'actionEdit_Reminder':
-            # Ensure only one row selected, get item for that row
-            # get Reminder instance, pass it as existing_reminder
-            logger.debug('User wants to edit')
-            indices = self.mainTableWidget.selectionModel().selectedRows()
-            selected_rows = [index.row() for index in indices]
-            if len(selected_rows) == 1:
-                selected_row = selected_rows[0]
-                # PK (use PK not reminder, because for long notes the value
-                # in the Reminder col of qttablewidget item wont match full note)
-                pk = self.mainTableWidget.item(selected_row, 4).text()
-                logger.debug('Reminder with pk %s' % pk)
-                # due_local_str = self.mainTableWidget.item(selected_row, 0).text()
-                # due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
-                # due_utc_str = self.mainTableWidget.item(selected_row, 3).text()
-                # note = self.mainTableWidget.item(selected_row, 2).text()
-                # logger.debug('searching for due:%s and note: %s' % (due_utc_str, note))
-                reminder = self.session.query(Reminder).get(int(pk))
-                # reminder = self.session.query(Reminder).filter(Reminder.due == due_utc_str,
-                #                                                Reminder.note == note).first()
-                logger.debug('Got reminder %s for edit.' % reminder)
-            else:
-                QMessageBox.warning(self, 'Select rows', 'You must select one row.')
-                return
+    # #################### Misc slots and helper methods #####################
+    @QtCore.Slot(str)
+    def launch_notification(self, reminder_id):
+        due = note = None
+        with session_scope() as session:
+            reminder = session.query(Reminder).get(int(reminder_id))
+            due = reminder.due
+            note = reminder.note
+            reminder.complete = True
 
-        dialog = AddEditDialog(self.session, self.time_zone, existing_reminder=reminder, parent=self)
-        dialog.categories_changed.connect(self.handle_categories_changed)
-        if dialog.exec_():
-            # Focus on 'All' category so we can see new reminder being added
-            root = self.mainTreeWidget.topLevelItem(0)
-            all_item = root.child(0)
-            logger.debug('Set the tree item as %s' % all_item.text(0))
-            self.mainTreeWidget.setCurrentItem(all_item)
-            self.refresh_table()
+        # Get local datetime for output to user and format note as html
+        local_due = dt2str(utcstr2local(due, self.time_zone, date_format='%Y-%m-%d %H:%M'))
+        htmlcontent = '<p>%s</p>' % note
 
-    @Slot()
-    def handle_categories_changed(self):
-        logger.debug('Refreshing categories tree')
-        self.refresh_tree()
-
-    @Slot(str, str, str)
-    def launch_reminder(self, due, categories, note):
         # QApplication.instance().beep()
-        if QSound.isAvailable():
+        if QtGui.QSound.isAvailable():
             # Seems I would have to recompile with NAS support, but
             # what does that mean for python when pyside was pip installed??
-            QSound.play("media/alarm_beep.wav")
+            QtGui.QSound.play("media/alarm_beep.wav")
+
+        # Systray notification
+        self.tray_icon.showMessage(
+            unicode('Reminder due at %s' % local_due),
+            smart_truncate(note, length=100),
+            QtGui.QSystemTrayIcon.Information,
+            5000
+        )
+
+        # Dialog notification
         self.show()
-        local_due = dt2str(utcstr2local(due, self.time_zone, date_format='%Y-%m-%d %H:%M'))
         dlg = NotificationDialog()
-        # htmlcontent = '<h1 font-style="normal"> Due at %s </h1>' % local_due
-        # htmlcontent += '<ul>'
-        # for category in categories:
-        #     htmlcontent += '<li><span font-style="normal">%s</span></li>' % category
-        # htmlcontent += '</ul>'
-        htmlcontent = '<p>%s</p>' % note
         dlg.notificationTextBrowser.setHtml(htmlcontent)
-        dlg.setWindowTitle(unicode('Due at %s, note: %s' % (local_due, smart_truncate(note, length=20))))
+        dlg.setWindowTitle(unicode('Due at %s' % local_due))
         dlg.exec_()
-        # QMessageBox.information(self, "%s: %s" % (local_due, categories), note)
+
+        # Refresh table to account for this reminder completion
         self.refresh_table()
 
-    def remove_button_clicked(self):
-        """Removes the selected row from the mainTable"""
-        indices = self.mainTableWidget.selectionModel().selectedRows()
-        selected_rows = [index.row() for index in indices]
-        if selected_rows:
-            # sorted is important so we delete last in last first
-            # and don't mess up the indexing of iterator
-            for row in sorted(selected_rows, reverse=True):
-                # due_local_str = self.mainTableWidget.item(row, 0).text()
-                # due_utc_str = dt2str(localstr2utc(due_local_str, self.time_zone))
-                # due_utc_str = self.mainTableWidget.item(row, 3).text()
-                # note = self.mainTableWidget.item(row, 2).text()
-                pk = self.mainTableWidget.item(row, 4).text()
-                reminder = self.session.query(Reminder).get(int(pk))
-                self.session.delete(reminder)
-                self.session.commit()
-                self.mainTableWidget.removeRow(row)
-            QMessageBox.information(self, 'Removed', 'Removed %i reminders.' % len(selected_rows))
-        else:
-            QMessageBox.warning(self, 'Select rows', 'You must select rows for removal.')
-
-    def import_action_triggered(self):
-        '''Import json to db'''
-
-        dbFile = QFileDialog.getOpenFileName(parent=None,
-                                             caption="Import database to a file",
-                                             directory=".", filter="QTierna JSON (*.json)")
-        if dbFile[0]:
-            try:
-                with open(dbFile[0], "r") as jsonfile:
-                    jdata = json.load(jsonfile)
-                    # Clear db
-                    Base.metadata.drop_all(engine)
-                    Base.metadata.create_all(engine)
-                    # Categories
-                    categories = jdata['categories']
-                    category_instances = []
-                    for category in categories:
-                        category_instance = Category(category_id=category['category_id'],
-                                                     category_name=category['category_name'])
-                        category_instances.append(category_instance)
-                        self.session.add(category_instance)
-                    self.session.commit()
-                    # Reminders
-                    reminders = jdata['reminders']
-                    for reminder in reminders:
-                        reminder_categories = filter(lambda c: c.category_id in reminder['category_ids'], category_instances)
-                        reminder_instance = Reminder(reminder_id=reminder['reminder_id'],
-                                                     due=reminder['due'],
-                                                     complete=reminder['complete'],
-                                                     note=reminder['note'])
-                        reminder_instance.categories = reminder_categories
-                        self.session.add(reminder_instance)
-                    self.session.commit()
-                    self.refresh_table()
-                    self.refresh_tree()
-                    category_count = self.session.query(Category).count()
-                    reminder_count = self.session.query(Reminder).count()
-                    msg = ("Successfully imported %i reminders and %i categories from file\r\n%s"
-                           % (reminder_count, category_count, (QDir.toNativeSeparators(dbFile[0]))))
-                    QMessageBox.information(self, __appname__, msg)
-            except Exception as importexc:
-                QMessageBox.critical(self, __appname__, "Error importing file, error is\r\n" + str(importexc))
-                return
-
-    def export_action_triggered(self):
-        """Database export handler"""
-
-        # Build JSON
-        jdump = {'timestamp': arrow.utcnow().timestamp, 'reminders': [], 'categories': []}
-        for r in self.session.query(Reminder).all():
-            rdict = r.as_dict()
-            rdict['category_ids'] = [c.category_id for c in r.categories]
-            jdump['reminders'].append(rdict)
-        jdump['categories'] = [c.as_dict() for c in self.session.query(Category).all()]
-
-        dbFile = QFileDialog.getSaveFileName(parent=None,
-                                             caption="Export database to a file",
-                                             directory=".", filter="QTierna JSON (*.json)")
-        if dbFile[0]:
-            try:
-                with io.open(dbFile[0], 'w', encoding='utf-8') as f:
-                    logger.debug(jdump)
-                    f.write(json.dumps(jdump, ensure_ascii=False))
-                    msg = ("Successfully exported %i reminders and %i categories to a file\r\n%s"
-                           % (len(jdump['reminders']), len(jdump['categories']), (QDir.toNativeSeparators(dbFile[0]))))
-                    QMessageBox.information(self, __appname__, msg)
-            except Exception as xportexc:
-                QMessageBox.critical(self, __appname__, "Error exporting file, error is\r\n" + str(xportexc))
-                return
-
-    def preferences_action_triggered(self):
-        """Fires up the Preferences dialog"""
-        dlg = PrefDialog(minimize=self.minimizeToTray, time_zone=self.time_zone)
-        # Still need to wire up the combo timezone selection
-        dlg.minimizeCheckBox.stateChanged.connect(self.set_minimize_behavior)
-        # dlg.hideCompleteCheckBox.stateChanged.connect(self.show_hide_complete)
-        dlg.time_zone_changed.connect(self.update_time_zone)
-        dlg.exec_()
-
+    @QtCore.Slot(bool)
     def set_minimize_behavior(self, state):
         self.logger('The minimize state is %s' % state)
         self.minimizeToTray = state
         self.settings.setValue("minimizeToTray",  bool2str(state))
 
-    def show_hide_complete(self, state):
-        self.logger('The show/hide complete state is %s' % state)
-        self.settings.setValue("showcompleted",  bool2str(state))
-        self.showcompleted = state
-        # self.refresh_table(completed=state)
-
-    @Slot(str)
+    @QtCore.Slot(str)
     def update_time_zone(self, time_zone):
         self.time_zone = pytz.timezone(time_zone)
         self.settings.setValue('time_zone', time_zone)
         self.refresh_table()
 
-    def about_action_triggered(self):
-        """Opens the About dialog"""
-        dlg = AboutDialog()
-        dlg.exec_()
-
-    def exit_action_triggered(self):
-        self.close()
-
-    # Override closeEvent, to intercept the window closing event
-    # The window will be closed only if there is no check mark in the check box
     def closeEvent(self, event):
+        '''
+        Override closeEvent, to intercept the window closing event
+        The window will be closed only if there is no check mark in the check box
+        '''
         if self.minimizeToTray:
             event.ignore()
             self.hide()
             self.tray_icon.showMessage(
                 "QTierna",
                 "QTiera was minimized to Tray",
-                QSystemTrayIcon.Information,
+                QtGui.QSystemTrayIcon.Information,
                 2000
             )
         else:
-            result = QMessageBox.question(self, __appname__, "Are you sure you want to exit?",
-                                          QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            result = QtGui.QMessageBox.question(self, __appname__, "Are you sure you want to exit?",
+                                                QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.MessageBox.Yes)
 
-            if result == QMessageBox.Yes:
+            if result == QtGui.QMessageBox.Yes:
                 event.accept()
             else:
                 event.ignore()
 
 
-class Worker(QObject):
-    reminderisdue = Signal(str, str, str)
-    refreshdates = Signal()
+class Worker(QtCore.QObject):
+    reminderisdue = QtCore.Signal(str)
+    refresh_human_dates = QtCore.Signal()
 
-    @Slot()
+    @QtCore.Slot()
     def check_reminders_loop(self):
-        self.session = Session()
-        # This timer just repeats every <interval> ms
+        '''
+        Every <interval> millseconds query the db for due reminders
+        '''
         interval = 5000
-        timer = QTimer(self)
+        timer = QtCore.QTimer(self)
         timer.timeout.connect(self.query_db)
         timer.start(interval)
 
     def query_db(self):
-        # Use this loop to also refresh the human dates (e.g. "In 1 hour" in
-        # table)
-        self.refreshdates.emit()
-        reminders = self.session.query(Reminder).filter(Reminder.complete == False).filter(func.DATETIME(Reminder.due, 'utc') <= func.DATETIME('now', 'utc')).all()
-        logger.debug('Got %i reminders due...' % len(reminders))
-        for reminder in reminders:
-            time.sleep(1)
-            reminder.complete = True
-            self.session.commit()
-            categories = [category.category_name for category in reminder.categories]
-            self.reminderisdue.emit(reminder.due, categories, reminder.note)
+        '''
+        This is ran every <interval> milliseoncds. We refresh the humanized
+        dates in the reminder due column and we check if any reminders are due
+
+        Note that sqlalchemy session in this thread is not the same session
+        as in the main thread. The scoped_session ensures in one thread
+        we can keep a kind of global session. It saves passing around copies
+        of the same session to different places, but it does not ensure same
+        session between threads. We need to be careful that changes to db
+        in this thread don't break other thread changes etc. Using sessions
+        just for the duration of work and not eternal sessions that get
+        init  during __init__ of main window and worker thread is also essential
+        This ensures the sessions are fresh and not out of date with db after
+        changes by the other thread...This is also consider good practice
+        see http://docs.sqlalchemy.org/en/latest/orm/session_basics.html#when-do-i-construct-a-session-when-do-i-commit-it-and-when-do-i-close-it
+
+        In this app, we can simply  restrict this worker to only reading the db
+        and never writing to it. We can set the complete=True after the signal in the main thread
+        '''
+        # Use this loop to also refresh the human dates (e.g. "In 1 hour" in table)
+        self.refresh_human_dates.emit()
+        reminders = []
+        with session_scope() as session:
+            reminders = session.query(Reminder).filter(Reminder.complete == False).filter(func.DATETIME(Reminder.due, 'utc') <= func.DATETIME('now', 'utc')).all()
+            logger.debug('Got %i reminders due...' % len(reminders))
+            for reminder in reminders:
+                self.reminderisdue.emit(str(reminder.reminder_id))
 
 
 def main():
-    QCoreApplication.setApplicationName("QTierna")
-    QCoreApplication.setApplicationVersion("0.1")
-    QCoreApplication.setOrganizationName("QTierna")
-    QCoreApplication.setOrganizationDomain("logicon.io")
+    QtCore.QCoreApplication.setApplicationName("QTierna")
+    QtCore.QCoreApplication.setApplicationVersion("0.1")
+    QtCore.QCoreApplication.setOrganizationName("QTierna")
+    QtCore.QCoreApplication.setOrganizationDomain("logicon.io")
 
-    app = QApplication(sys.argv)
+    app = QtGui.QApplication(sys.argv)
 
-    if not QSystemTrayIcon.isSystemTrayAvailable():
-        QMessageBox.critical(None, "Systray",
+    if not QtGui.QSystemTrayIcon.isSystemTrayAvailable():
+        QtGui.QMessageBox.critical(None, "Systray",
                                    "I couldn't detect any system tray on this system.")
         sys.exit(1)
-
-    # QApplication.setQuitOnLastWindowClosed(False)
 
     form = Main()
     form.show()

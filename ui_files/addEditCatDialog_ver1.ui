@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>addCatDialog</class>
- <widget class="QDialog" name="addCatDialog">
+ <class>addEditCatDialog</class>
+ <widget class="QDialog" name="addEditCatDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -22,7 +22,7 @@
     </widget>
    </item>
    <item row="1" column="0">
-    <widget class="QDialogButtonBox" name="addCatButtonBox">
+    <widget class="QDialogButtonBox" name="addEditCatButtonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
@@ -36,9 +36,9 @@
  <resources/>
  <connections>
   <connection>
-   <sender>addCatButtonBox</sender>
+   <sender>addEditCatButtonBox</sender>
    <signal>accepted()</signal>
-   <receiver>addCatDialog</receiver>
+   <receiver>addEditCatDialog</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -52,9 +52,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>addCatButtonBox</sender>
+   <sender>addEditCatButtonBox</sender>
    <signal>rejected()</signal>
-   <receiver>addCatDialog</receiver>
+   <receiver>addEditCatDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
