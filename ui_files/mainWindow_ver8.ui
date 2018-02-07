@@ -229,7 +229,6 @@ border: 1px solid white;
     <property name="title">
      <string>About</string>
     </property>
-    <addaction name="actionHelp"/>
     <addaction name="separator"/>
     <addaction name="actionAbout"/>
    </widget>

@@ -374,7 +374,7 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
 
     def about_action_triggered(self):
         """Opens the About dialog"""
-        dlg = AboutDialog()
+        dlg = AboutDialog(self)
         dlg.exec_()
 
     # ################## Context menu slots #################################

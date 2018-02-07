@@ -1,5 +1,6 @@
 <RCC>
   <qresource prefix="icons">
+    <file>icons/alarm-clock32.png</file>
     <file>icons/alarm.png</file>
     <file>icons/office-material.png</file>
     <file>icons/file.png</file>

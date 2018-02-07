@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainWindow_ver8.ui'
 #
-# Created: Tue Feb  6 23:42:13 2018
+# Created: Wed Feb  7 00:09:54 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -184,7 +184,6 @@ class Ui_mainWindow(object):
         self.menuFile.addAction(self.actionExport_Data)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionExit)
-        self.menuAbout.addAction(self.actionHelp)
         self.menuAbout.addSeparator()
         self.menuAbout.addAction(self.actionAbout)
         self.menuReminder.addAction(self.actionAdd_Reminder)

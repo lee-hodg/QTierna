@@ -7,3 +7,4 @@ class AboutDialog(QDialog, aboutDialog.Ui_aboutDialog):
     def __init__(self, parent=None):
         super(AboutDialog, self).__init__(parent)
         self.setupUi(self)
+        self.abtButtonBox.rejected.connect(self.reject)
