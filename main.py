@@ -307,12 +307,17 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
 
         # Build JSON
         jdump = {'timestamp': arrow.utcnow().timestamp, 'reminders': [], 'categories': []}
-        with session_scope() as session:
-            for r in session.query(Reminder).all():
-                rdict = r.as_dict()
-                rdict['category_ids'] = [c.category_id for c in r.categories]
-                jdump['reminders'].append(rdict)
-            jdump['categories'] = [c.as_dict() for c in session.query(Category).all()]
+        try:
+            with session_scope() as session:
+                for r in session.query(Reminder).all():
+                    rdict = r.as_dict()
+                    rdict['category_ids'] = [c.category_id for c in r.categories]
+                    jdump['reminders'].append(rdict)
+                jdump['categories'] = [c.as_dict() for c in session.query(Category).all()]
+        except Exception as xp_exc:
+            logger.error(str(xp_exc))
+            QtGui.QMessageBox(self, "Unexpected Exception", "Could not export to file")
+            return
 
         dbFile = QtGui.QFileDialog.getSaveFileName(parent=None,
                                                    caption="Export database to a file",
@@ -402,16 +407,13 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
     def refresh_human_dates(self):
         '''
         Periodically update the human due date column of all rows
-        currently in the mainTableWidget
+        currently in the mainTableWidget and set color to the "soon_color"
+        if will occur within day
         '''
         for indx in xrange(self.mainTableWidget.rowCount()):
             utc_datetime_str = self.mainTableWidget.item(indx, 3).text()
-            # local_datetime_str = dt2str(utcstr2local(utc_datetime_str, self.time_zone))
-            # Update the human date at (indx, 0) (e.g. "In 25 minutes")
             arrow_utc_dt = arrow.get(utc_datetime_str, 'YYYY-MM-DD HH:mm')
             human_due = arrow_utc_dt.humanize()
-            # self.mainTableWidget.setItem(indx, 0, QtGui.QTableWidgetItem(human_due))
-            # self.mainTableWidget.item(indx, 0).setToolTip(local_datetime_str)
             self.mainTableWidget.item(indx, 0).setText(human_due)
             hours_before = ((arrow_utc_dt - arrow.utcnow()).total_seconds())/3600.0
             if hours_before <= 24 and hours_before > 0:
@@ -468,19 +470,38 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
                 logger.debug('Set %s as current category item' % category)
                 self.mainTreeWidget.setCurrentItem(cat_child)
 
-
     def refresh_table(self):
-        """Refreshes (or initially loads) the table according to db"""
+        """
+        Refreshes (or initially loads) the table according to db
+
+        First we find which (if any) category is selected, then we filter
+        our reminders based on that.
+
+        With a list of reminders we repopulate the table, setting human
+        readable dates in due column, which tooltip for exact date, categories
+        in the second column, with tooltip of all categories, note in the third
+        column with tooltip of full note, and fourth and fifth hidden columns
+        that record the utc and id. Storing the UTC in a hidden col is a convenience
+        that saves having to query the db again with the id, e.g. in
+        refresh_human_dates()
+
+        If the category is the "Complete" category set a dynamic property
+        that will trigger the alt stylsheet row coloring.
+        """
+        # Init
         reverse_dates = False
+        root = self.mainTreeWidget.topLevelItem(0)
         category_name = None
+        indx = None
+
+        # Get current category if there is one
         cat = self.mainTreeWidget.currentItem()
         if cat:
             category_name = cat.text(self.mainTreeWidget.currentColumn())
-        # if cat.parent():
-        root = self.mainTreeWidget.topLevelItem(0)
-        indx = root.indexOfChild(cat)
-        logger.debug('Refreshing table with category %s and Index is %s' % (category_name, indx))
+            indx = root.indexOfChild(cat)
+
         with session_scope() as session:
+            # Get reminder instances from database for the given category
             if indx == 0 and category_name == 'All':
                 # Selected All
                 reminders = session.query(Reminder).filter(Reminder.complete == False).all()
@@ -488,7 +509,6 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
                 # all completed
                 reverse_dates = True
                 reminders = session.query(Reminder).filter(Reminder.complete == True).all()
-                logger.debug('Ran the all completed query...')
             elif indx == 2 and category_name == 'Uncategorized':
                 reminders = session.query(Reminder).filter(Reminder.complete == False).filter(~Reminder.categories.any()).all()
             elif indx > 2 and category_name:
@@ -496,24 +516,20 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
             else:
                 # Nothing selected
                 reminders = session.query(Reminder).filter(Reminder.complete == False).all()
-            logger.debug('Refreshing table with reminders %s' % reminders)
+            logger.debug('Refreshing table: cat %s, indx: %s. Reminders %s' % (category_name, indx, reminders))
 
-            # reminders = sorted(reminders, key=lambda reminder: (reminder.complete, datetime.strptime(reminder.due, '%Y-%m-%d %H:%M')))
+            # Populate the table with the reminders sorted by datetimes
             reminders = sorted(reminders, key=lambda reminder: datetime.strptime(reminder.due, '%Y-%m-%d %H:%M'), reverse=reverse_dates)
             self.mainTableWidget.setRowCount(0)  # Delete rows ready to repopulate
             for inx, reminder in enumerate(reminders):
-                # UTC in db
-                utc_datetime_str = reminder.due
-                local_datetime_str = dt2str(utcstr2local(utc_datetime_str, self.time_zone))
-                categories = ', '.join([category.category_name for category in reminder.categories])
-                # We can get beautiful human times with arrow
-                arrow_utc_dt = arrow.get(utc_datetime_str, 'YYYY-MM-DD HH:mm')
-                human_due = arrow_utc_dt.humanize()
-                # logger.debug('Reminder had utc due %s and humanize gave %s. arrow utc now %s' % (utc_datetime_str, human_due, arrow.utcnow()))
-                # This would be nice, but I'd lose the exact dt, which would
-                # make it hard when deleting/editing these rows. Could I store
-                # it on hidden column maybe?
+                # Insert the row
                 self.mainTableWidget.insertRow(inx)
+
+                # Due col
+                utc_datetime_str = reminder.due  # UTC
+                local_datetime_str = dt2str(utcstr2local(utc_datetime_str, self.time_zone))
+                arrow_utc_dt = arrow.get(utc_datetime_str, 'YYYY-MM-DD HH:mm')
+                human_due = arrow_utc_dt.humanize()  # Human readable dt
                 self.mainTableWidget.setItem(inx, 0, QtGui.QTableWidgetItem(human_due))
                 self.mainTableWidget.item(inx, 0).setToolTip(local_datetime_str)
                 hours_before = ((arrow_utc_dt - arrow.utcnow()).total_seconds())/3600.0
@@ -521,45 +537,50 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
                     # Highlight
                     self.mainTableWidget.item(inx, 0).setBackground(self.soon_color)
 
+                # Categories col
+                categories = ', '.join([category.category_name for category in reminder.categories])
                 catItem = QtGui.QTableWidgetItem(categories)
-                if len(reminder.categories) > 0:
-                    # catTip = '<ul style="list-style: none; padding-left: 0;">'
-                    # for category in reminder.categories:
-                    #     catTip += '<li>%s</li>' % category.category_name
-                    # catTip += '</ul>'
-                    catTip = u'<font color="black">%s</font>' % '<br/>'.join([c.category_name for c in reminder.categories])
-                    catItem.setToolTip(catTip)
+                catTip = u'<font color="black">%s</font>' % '<br/>'.join([c.category_name for c in reminder.categories])
+                catItem.setToolTip(catTip)
                 self.mainTableWidget.setItem(inx, 1, catItem)
+
+                # Note col
                 noteItem = QtGui.QTableWidgetItem(smart_truncate(reminder.note))
                 noteTip = u"<div style='width: 300px;'>%s</div>" % smart_truncate(reminder.note, length=1000)
                 noteItem.setToolTip(noteTip)
                 self.mainTableWidget.setItem(inx, 2, noteItem)
+
+                # Hidden cols for UTC string and ID
                 self.mainTableWidget.setItem(inx, 3, QtGui.QTableWidgetItem(utc_datetime_str))
-                # logger.debug('Setting fifth col with %s' % reminder.reminder_id)
                 self.mainTableWidget.setItem(inx, 4, QtGui.QTableWidgetItem(unicode(reminder.reminder_id)))
 
-        # Set the row coloring according to
+        # Set the row coloring accordingly
         if category_name == 'Complete':
-                # Could just directly update stylesheet on table,
-                # but using dynamic properties and [complete=true]
-                # targeting in the style sheet is a little nicer
-                self.mainTableWidget.setProperty('complete', True)
-                self.mainTableWidget.style().unpolish(self.mainTableWidget)
-                self.mainTableWidget.style().polish(self.mainTableWidget)
+            # Could just directly update stylesheet on table,
+            # but using dynamic properties and [complete=true]
+            # targeting in the style sheet is a little nicer
+            self.mainTableWidget.setProperty('complete', True)
+            self.mainTableWidget.style().unpolish(self.mainTableWidget)
+            self.mainTableWidget.style().polish(self.mainTableWidget)
         else:
-                self.mainTableWidget.setProperty('complete', False)
-                self.mainTableWidget.style().unpolish(self.mainTableWidget)
-                self.mainTableWidget.style().polish(self.mainTableWidget)
+            self.mainTableWidget.setProperty('complete', False)
+            self.mainTableWidget.style().unpolish(self.mainTableWidget)
+            self.mainTableWidget.style().polish(self.mainTableWidget)
 
     # #################### Misc slots and helper methods #####################
     @QtCore.Slot(str)
     def launch_notification(self, reminder_id):
         due = note = None
-        with session_scope() as session:
-            reminder = session.query(Reminder).get(int(reminder_id))
-            due = reminder.due
-            note = reminder.note
-            reminder.complete = True
+        try:
+            with session_scope() as session:
+                reminder = session.query(Reminder).get(int(reminder_id))
+                due = reminder.due
+                note = reminder.note
+                reminder.complete = True
+        except Exception as uexc:
+            logger.error(str(uexc))
+            QtGui.QMessageBox(self, 'Unexpected exception', 'Could not mark due reminder as complete')
+            return
 
         # Get local datetime for output to user and format note as html
         local_due = dt2str(utcstr2local(due, self.time_zone, date_format='%Y-%m-%d %H:%M'))

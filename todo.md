@@ -3,9 +3,11 @@ Not sure. We only have one GUI thread, I'm not sure a second thread could show a
 to the main thread to show one...Would need a second GUI thread. It's kind of fine anyway that the popup blocks, it's modal
 afterall, but why is there a brief pause of freeze before it actually shows?
 
-> Reminder popup should be above all active windows, and maybe a systray dialog would be cool too
+> Reminder popup should be above all active windows if possible?
 
 > Sound alert???
+
+> Prevent multiple instances of app at one time
 
 > pip/deb/windows installer testing
 
