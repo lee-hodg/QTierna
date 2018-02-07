@@ -1,3 +1,4 @@
+import pytz
 from ui_files import prefDialog
 from PySide.QtGui import QDialog, QListWidgetItem
 from PySide.QtCore import Signal

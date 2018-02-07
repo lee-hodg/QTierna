@@ -465,6 +465,10 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
         for category in categories:
             cat_child = QtGui.QTreeWidgetItem()
             cat_child.setText(0, category)
+            # Icon
+            cat_icon = QtGui.QIcon()
+            cat_icon.addPixmap(QtGui.QPixmap(":/icons/icons/play-button.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+            cat_child.setIcon(0, cat_icon)
             root.addChild(cat_child)
             if category == old_category:
                 logger.debug('Set %s as current category item' % category)
@@ -612,7 +616,7 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
 
     @QtCore.Slot(bool)
     def set_minimize_behavior(self, state):
-        self.logger('The minimize state is %s' % state)
+        logger.debug('The minimize state is %s' % state)
         self.minimizeToTray = state
         self.settings.setValue("minimizeToTray",  bool2str(state))
 
@@ -638,7 +642,7 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
             )
         else:
             result = QtGui.QMessageBox.question(self, __appname__, "Are you sure you want to exit?",
-                                                QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.MessageBox.Yes)
+                                                QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.Yes)
 
             if result == QtGui.QMessageBox.Yes:
                 event.accept()
