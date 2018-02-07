@@ -17,7 +17,8 @@ class ManageRemCatsDialog(QtGui.QDialog, manageRemCatsDialog.Ui_manageRemCatsDia
         # If we are editing existing reminder we initially load its categories
         self.edit_reminder_id = edit_reminder_id
 
-        self.refresh_list()
+        # Build the list of categories and selected categories according to db
+        self.init_list()
 
         # #################### Preventitive validation ######################
         # Disbale the add cat button until min length
@@ -52,6 +53,11 @@ class ManageRemCatsDialog(QtGui.QDialog, manageRemCatsDialog.Ui_manageRemCatsDia
             self.manageRemCatsPushButton.setEnabled(False)
 
     def add_cat_btn_pressed(self):
+        '''
+        Add a new category.
+        Preventitive validation means that if we made it here we must have a category
+        name of valid length. Just need to check not reserved and not already existing
+        '''
         category_name = self.manageRemCatsLineEdit.text().strip()
 
         # Check new category name is not a reserved word
@@ -81,49 +87,56 @@ class ManageRemCatsDialog(QtGui.QDialog, manageRemCatsDialog.Ui_manageRemCatsDia
         '''
         # Get all checked in listviewwidget
         # delete from db
-        selected_items = self._get_selected_categories()
-        logger.debug('Got %i categories for deletion..' % len(selected_items))
+        selected_items = self.manageRemCatsListWidget.selectedItems()
+        selected_category_names = [item.text() for item in selected_items]
+        logger.debug('Got %i categories for deletion..' % len(selected_category_names))
         try:
             with session_scope() as session:
-                session.query(Category).filter(Category.category_name.in_(selected_items)).delete(synchronize_session='fetch')
+                session.query(Category).filter(Category.category_name.in_(selected_category_names)).delete(synchronize_session='fetch')
         except Exception as del_exc:
             QtGui.QMessageBox.warning(self, "Unexpected error", unicode('Could not delete categories'))
             logger.error(str(del_exc))
         else:
-            logger.debug('Deleted %s' % selected_items)
+            logger.debug('Deleted %s' % selected_category_names)
             self.categories_changed.emit()
-            self.refresh_list()
 
-    def refresh_list(self):
+            # Delete these items from the list widget
+            for selected_item in selected_items:
+                logger.debug('Removing item %s from list widget' % selected_item)
+                self.manageRemCatsListWidget.takeItem(self.manageRemCatsListWidget.row(selected_item))
+
+    def init_list(self):
         '''
-        Build list widget according to current database
+        Build list widget according to db
         '''
         # Init
         all_categories = []
-        # Maintain user selections
-        active_categories = [item.text() for item in self.manageRemCatsListWidget.selectedItems()]
+        selected_categories = []
 
         try:
             with session_scope() as session:
-                all_categories = session.query(Category.category_name).order_by(Category.category_name)
-                if self.edit_reminder_id is not None and not active_categories:
-                    # If editing and first init active cats set from reminder
+                all_categories = session.query(Category.category_name).order_by(Category.category_name).all()
+                all_categories = [c[0] for c in all_categories]
+                if self.edit_reminder_id is not None:
                     reminder = session.query(Reminder).get(int(self.edit_reminder_id))
-                    active_categories = [category.category_name for category in reminder.categories]
+                    selected_categories = [category.category_name for category in reminder.categories]
         except Exception as cat_exc:
-            QtGui.QMessageBox.warning(self, "Unexpected error", unicode('Could not refresh categories list'))
+            QtGui.QMessageBox.warning(self, "Unexpected error", unicode('Could not init categories list'))
             logger.error(str(cat_exc))
         else:
-            # Clear list and rebuild
-            self.manageRemCatsListWidget.clear()
+            logger.debug('All categories is %s' % all_categories)
+            logger.debug('Selected categories is %s' % selected_categories)
             for category in all_categories:
                 # Add to list widget
-                item = QtGui.QListWidgetItem(category.category_name, self.manageRemCatsListWidget)
-                if category in active_categories:
+                item = QtGui.QListWidgetItem(category, self.manageRemCatsListWidget)
+                if category in selected_categories:
                     item.setSelected(True)
 
         # Ensure ordered
         self.manageRemCatsListWidget.sortItems()
 
     def _get_selected_categories(self):
+        '''
+        Gets names of selected categories in manage categories dialog
+        '''
         return [item.text() for item in self.manageRemCatsListWidget.selectedItems()]
