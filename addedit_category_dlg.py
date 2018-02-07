@@ -2,6 +2,9 @@ from setup_db import session_scope
 from ui_files import addEditCatDialog
 from PySide.QtGui import QDialog, QDialogButtonBox, QMessageBox
 from PySide.QtCore import Signal, Slot
+from sqlalchemy import exc
+from models import Category
+from setup_logging import logger
 
 
 class AddEditCatDialog(QDialog, addEditCatDialog.Ui_addEditCatDialog):
@@ -16,7 +19,14 @@ class AddEditCatDialog(QDialog, addEditCatDialog.Ui_addEditCatDialog):
         # If editing
         self.edit_cat_id = edit_cat_id
         if self.edit_cat_id:
-            self.addEditCatLineEdit.setText(self.category.category_name)
+            try:
+                with session_scope() as session:
+                    category = session.query(Category).get(int(self.edit_cat_id))
+                    self.addEditCatLineEdit.setText(category.category_name)
+            except Exception as cexc:
+                logger.error(str(cexc))
+                QMessageBox.warning(self, "Unexpected Error", unicode('Could not set category name.'))
+                return
 
         # Preventitive validation
         self.addEditCatLineEdit.setMaxLength(50)
@@ -46,10 +56,14 @@ class AddEditCatDialog(QDialog, addEditCatDialog.Ui_addEditCatDialog):
                         session.add(category)
                         logger.debug('Added cat with name %s' % category_name)
             except exc.IntegrityError as int_exc:
-                logger.error(int_exc)
+                logger.debug(int_exc)
                 QMessageBox.warning(self, "Already exists warning", unicode('This category already exists'))
                 self.addEditCatLineEdit.setFocus()
                 self.selectAll()
+                return
+            except Exception as uexc:
+                logger.error(str(uexc))
+                QMessageBox.warning(self, "Unexpected Error", unicode('Could not edit category.'))
                 return
             else:
                 # All good, accept after triggering tree refresh with sig

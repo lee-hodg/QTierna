@@ -15,7 +15,7 @@
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
-    <widget class="QLineEdit" name="addCatLineEdit">
+    <widget class="QLineEdit" name="addEditCatLineEdit">
      <property name="placeholderText">
       <string>Add new category</string>
      </property>

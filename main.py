@@ -71,6 +71,7 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
         self.actionAdd_Reminder.triggered.connect(self.addedit_rem_action_triggered)
         self.actionEdit_Reminder.triggered.connect(self.addedit_rem_action_triggered)
         self.actionRemove_Reminder.triggered.connect(self.remove_rem_action_triggered)
+        self.actionAdd_Category.triggered.connect(self.addedit_cat_action_triggered)
         self.actionEdit_Category.triggered.connect(self.addedit_cat_action_triggered)
         self.actionDelete_Category.triggered.connect(self.remove_cat_action_triggered)
         self.actionExport_Data.triggered.connect(self.export_action_triggered)
@@ -115,10 +116,10 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
         self.mainTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.mainTreeWidget.customContextMenuRequested.connect(self.on_tree_context_menu)
         self.tree_popup_menu = QtGui.QMenu(self)
-        self.tree_popup_menu.addAction("New category", self.addedit_cat_action_triggered)
-        self.tree_popup_menu.addAction("Rename category", self.addedit_cat_action_triggered)
+        self.tree_popup_menu.addAction(self.actionAdd_Category)
+        self.tree_popup_menu.addAction(self.actionEdit_Category)
         self.tree_popup_menu.addSeparator()
-        self.tree_popup_menu.addAction("Delete category", self.remove_cat_action_triggered)
+        self.tree_popup_menu.addAction(self.actionDelete_Category)
         # Popup context menu when right-click on row on the table widget for
         # add/edit/remove reminder
         self.mainTableWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -201,7 +202,7 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
         if action is None or not isinstance(action, QtGui.QAction):
             return None
 
-        if action.objectName() == 'actionEdit_Categoryr':
+        if action.objectName() == 'actionEdit_Category':
             logger.debug('User wants to edit category')
             # Selected category
             cat = self.mainTreeWidget.currentItem()
@@ -418,25 +419,55 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
                 self.mainTableWidget.item(indx, 0).setBackground(self.soon_color)
 
     def refresh_tree(self):
+        '''
+        Re-build the tree from database.
+
+        Record the current category item, and if it is still present
+        after the re-build set it as the current, else set 'All' category as current.
+
+        Note that the root is the "Categories" item, the first 3 of its children
+        are static, mandatory categories, "All", "Complete" and "Uncategorized"
+        that don't come from the database - they are fixed. We only delete
+        the custom user categories that come after these...
+        '''
+        # Record the current category
+        old_category = self.mainTreeWidget.currentItem()
+        if old_category is not None:
+            old_category = old_category.text(self.mainTreeWidget.currentColumn())
+
+        # Reload all the categories from the database
         categories = []
-        with session_scope() as session:
-            categories = session.query(Category.category_name).order_by(Category.category_name).all()
-            categories = [c[0] for c in categories]
+        try:
+            with session_scope() as session:
+                categories = session.query(Category.category_name).order_by(Category.category_name).all()
+                categories = [c[0] for c in categories]
+        except Exception as uexc:
+            logger.error(str(uexc))
+            QtGui.QMessageBox.error(self, 'Unexpected error', 'Could not select query categories.')
+            return
         logger.debug('All categories %s' % categories)
-        # Find top-level category item
+
+        # Rebuild the tree widget with the reloaded categories
         root = self.mainTreeWidget.topLevelItem(0)
-        # root_parent = root.parent()
         root.setExpanded(True)
         # Clear custom categories, reverse important to not mess up interator
-        # First 3 kids are mandatory, don't delete.
+        # First 3 kids are static, don't delete.
         for i in reversed(range(root.childCount())):
             if i > 2:
                 root.removeChild(root.child(i))
+
+        # Set 'All' selected by default but set old current cat as current if
+        # it still exists
+        all_item = root.child(0)
+        self.mainTreeWidget.setCurrentItem(all_item)
         for category in categories:
-            QtGui.QTreeWidgetItem(root, [category, ])
-        # root.addChild(qtwItem.setText(0, 'Nips'))
-        # logger.debug('Root: %s' % root)
-        # logger.debug('Root parent: %s' % root_parent)
+            cat_child = QtGui.QTreeWidgetItem()
+            cat_child.setText(0, category)
+            root.addChild(cat_child)
+            if category == old_category:
+                logger.debug('Set %s as current category item' % category)
+                self.mainTreeWidget.setCurrentItem(cat_child)
+
 
     def refresh_table(self):
         """Refreshes (or initially loads) the table according to db"""
