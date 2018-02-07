@@ -13,6 +13,10 @@
   <property name="windowTitle">
    <string>Due</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="../icons.qrc">
+    <normaloff>:/icons/icons/alarm.png</normaloff>:/icons/icons/alarm.png</iconset>
+  </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
     <widget class="QTextBrowser" name="notificationTextBrowser">
@@ -41,7 +45,9 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="../icons.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>notificationButtonBox</sender>

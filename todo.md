@@ -1,3 +1,5 @@
+> Delete on cat/reminder should trigger delete action via eventFilter
+
 > Reminder popup should be above all active windows if possible?
 
 > Sound alert???

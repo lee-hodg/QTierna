@@ -1,5 +1,6 @@
 <RCC>
   <qresource prefix="icons">
+    <file>icons/alarm.png</file>
     <file>icons/office-material.png</file>
     <file>icons/file.png</file>
     <file>icons/uncat_folder.png</file>

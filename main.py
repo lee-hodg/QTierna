@@ -130,9 +130,38 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
         self.table_popup_menu.addSeparator()
         self.table_popup_menu.addAction(self.actionRemove_Reminder)
 
+        # ############# Install event filters ###############################
+        self.mainTreeWidget.installEventFilter(self)
+        self.mainTableWidget.installEventFilter(self)
+
         # ############ Initial load of the tree and table ###################
         self.refresh_tree()
         self.refresh_table()
+
+    # ################# Event filter ########################################
+    def eventFilter(self, widget, event):
+        if event.type() == QtCore.QEvent.KeyPress:
+            if widget is self.mainTreeWidget:
+                key = event.key()
+                if key == QtCore.Qt.Key_Delete:
+                    logger.debug('Delete cat key event')
+                    self.actionDelete_Category.triggered.emit()
+                    return True
+                elif key == QtCore.Qt.Key_Return:
+                    logger.debug('Edit cat key event')
+                    self.actionEdit_Category.triggered.emit()
+                    return True
+            elif widget is self.mainTableWidget:
+                key = event.key()
+                if key == QtCore.Qt.Key_Delete:
+                    logger.debug('Delete rem key event')
+                    self.actionRemove_Reminder.triggered.emit()
+                    return True
+                elif key == QtCore.Qt.Key_Return:
+                    logger.debug('Edit rem key event')
+                    self.actionEdit_Reminder.triggered.emit()
+                    return True
+        return QtGui.QMainWindow.eventFilter(self, widget, event)
 
     # #################### Main Table slots #################################
     def table_dbl_click(self, item):
@@ -169,7 +198,7 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
         dialog = AddEditRemDialog(self.time_zone, edit_reminder_id=reminder_id, parent=self)
         dialog.categories_changed.connect(self.refresh_tree)
         if dialog.exec_():
-            # Focus on 'All' category so we can see new reminder has been added
+            # Focus on 'Upcoming' category so we can see new reminder has been added
             root = self.mainTreeWidget.topLevelItem(0)
             all_item = root.child(0)
             self.mainTreeWidget.setCurrentItem(all_item)
@@ -425,10 +454,10 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
         Re-build the tree from database.
 
         Record the current category item, and if it is still present
-        after the re-build set it as the current, else set 'All' category as current.
+        after the re-build set it as the current, else set 'Upcoming' category as current.
 
         Note that the root is the "Categories" item, the first 3 of its children
-        are static, mandatory categories, "All", "Complete" and "Uncategorized"
+        are static, mandatory categories, "Upcoming", "Complete" and "Uncategorized"
         that don't come from the database - they are fixed. We only delete
         the custom user categories that come after these...
         '''
@@ -458,7 +487,7 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
             if i > 2:
                 root.removeChild(root.child(i))
 
-        # Set 'All' selected by default but set old current cat as current if
+        # Set 'Upcoming' selected by default but set old current cat as current if
         # it still exists
         all_item = root.child(0)
         self.mainTreeWidget.setCurrentItem(all_item)
@@ -506,8 +535,8 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
 
         with session_scope() as session:
             # Get reminder instances from database for the given category
-            if indx == 0 and category_name == 'All':
-                # Selected All
+            if indx == 0 and category_name == 'Upcoming':
+                # Selected Upcoming
                 reminders = session.query(Reminder).filter(Reminder.complete == False).all()
             elif indx == 1 and category_name == 'Complete':
                 # all completed

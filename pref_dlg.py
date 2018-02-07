@@ -2,6 +2,7 @@ import pytz
 from ui_files import prefDialog
 from PySide.QtGui import QDialog, QListWidgetItem
 from PySide.QtCore import Signal
+from setup_logging import logger
 
 class PrefDialog(QDialog, prefDialog.Ui_prefDialog):
 

@@ -79,7 +79,7 @@
         </property>
         <item>
          <property name="text">
-          <string>All</string>
+          <string>Upcoming</string>
          </property>
          <property name="font">
           <font>
@@ -89,7 +89,7 @@
          </property>
          <property name="icon">
           <iconset resource="../icons.qrc">
-           <normaloff>:/icons/icons/office-material.png</normaloff>:/icons/icons/office-material.png</iconset>
+           <normaloff>:/icons/icons/alarm.png</normaloff>:/icons/icons/alarm.png</iconset>
          </property>
         </item>
         <item>

@@ -78,7 +78,7 @@ class AddEditCatDialog(QDialog, addEditCatDialog.Ui_addEditCatDialog):
             Not empty string and not above 30 chars long(let the disable/enable save btn deal with that)
         '''
         category_name = self.addEditCatLineEdit.text().strip()
-        if category_name.lower().strip() in ['all', 'complete', 'uncategorized', 'categories', 'category']:
+        if category_name.lower().strip() in ['upcoming', 'complete', 'uncategorized', 'categories', 'category']:
             QMessageBox.warning(self, "Reserved warning", unicode("Choose a different name"))
             return False
         return True

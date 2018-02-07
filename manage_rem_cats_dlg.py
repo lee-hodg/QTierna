@@ -61,7 +61,7 @@ class ManageRemCatsDialog(QtGui.QDialog, manageRemCatsDialog.Ui_manageRemCatsDia
         category_name = self.manageRemCatsLineEdit.text().strip()
 
         # Check new category name is not a reserved word
-        if category_name.lower() in ['all', 'complete', 'uncategorized', 'categories', 'category']:
+        if category_name.lower() in ['upcoming', 'complete', 'uncategorized', 'categories', 'category']:
             QtGui.QMessageBox.warning(self, "Reserved warning", unicode("Choose a different name"))
             return
 

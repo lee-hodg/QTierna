@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainWindow_ver8.ui'
 #
-# Created: Mon Feb  5 20:43:54 2018
+# Created: Tue Feb  6 23:42:13 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -46,7 +46,7 @@ class Ui_mainWindow(object):
         font.setWeight(75)
         font.setBold(True)
         icon2 = QtGui.QIcon()
-        icon2.addPixmap(QtGui.QPixmap(":/icons/icons/office-material.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon2.addPixmap(QtGui.QPixmap(":/icons/icons/alarm.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         item_1.setIcon(0, icon2)
         item_1 = QtGui.QTreeWidgetItem(item_0)
         font = QtGui.QFont()
@@ -219,7 +219,7 @@ class Ui_mainWindow(object):
         __sortingEnabled = self.mainTreeWidget.isSortingEnabled()
         self.mainTreeWidget.setSortingEnabled(False)
         self.mainTreeWidget.topLevelItem(0).setText(0, QtGui.QApplication.translate("mainWindow", "Categories", None, QtGui.QApplication.UnicodeUTF8))
-        self.mainTreeWidget.topLevelItem(0).child(0).setText(0, QtGui.QApplication.translate("mainWindow", "All", None, QtGui.QApplication.UnicodeUTF8))
+        self.mainTreeWidget.topLevelItem(0).child(0).setText(0, QtGui.QApplication.translate("mainWindow", "Upcoming", None, QtGui.QApplication.UnicodeUTF8))
         self.mainTreeWidget.topLevelItem(0).child(1).setText(0, QtGui.QApplication.translate("mainWindow", "Complete", None, QtGui.QApplication.UnicodeUTF8))
         self.mainTreeWidget.topLevelItem(0).child(2).setText(0, QtGui.QApplication.translate("mainWindow", "Uncategorized", None, QtGui.QApplication.UnicodeUTF8))
         self.mainTreeWidget.setSortingEnabled(__sortingEnabled)
