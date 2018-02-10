@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'mainWindow_ver8.ui'
+# Form implementation generated from reading ui file 'mainWindow_ver9.ui'
 #
-# Created: Wed Feb  7 00:09:54 2018
+# Created: Fri Feb  9 12:09:52 2018
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -237,7 +237,7 @@ class Ui_mainWindow(object):
         self.actionImport_Data.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+I", None, QtGui.QApplication.UnicodeUTF8))
         self.actionExport_Data.setText(QtGui.QApplication.translate("mainWindow", "Export Data", None, QtGui.QApplication.UnicodeUTF8))
         self.actionExport_Data.setStatusTip(QtGui.QApplication.translate("mainWindow", "Export Reminders", None, QtGui.QApplication.UnicodeUTF8))
-        self.actionExport_Data.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+E", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionExport_Data.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+X", None, QtGui.QApplication.UnicodeUTF8))
         self.actionExit.setText(QtGui.QApplication.translate("mainWindow", "Exit", None, QtGui.QApplication.UnicodeUTF8))
         self.actionAdd_Reminder.setText(QtGui.QApplication.translate("mainWindow", "Add Reminder", None, QtGui.QApplication.UnicodeUTF8))
         self.actionAdd_Reminder.setStatusTip(QtGui.QApplication.translate("mainWindow", "Add Reminder", None, QtGui.QApplication.UnicodeUTF8))
@@ -253,7 +253,10 @@ class Ui_mainWindow(object):
         self.actionEdit_Reminder.setStatusTip(QtGui.QApplication.translate("mainWindow", "Edit selected reminder", None, QtGui.QApplication.UnicodeUTF8))
         self.actionEdit_Reminder.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+E", None, QtGui.QApplication.UnicodeUTF8))
         self.actionAdd_Category.setText(QtGui.QApplication.translate("mainWindow", "Add Category", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionAdd_Category.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+Shift+A", None, QtGui.QApplication.UnicodeUTF8))
         self.actionEdit_Category.setText(QtGui.QApplication.translate("mainWindow", "Edit Category", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionEdit_Category.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+Shift+E", None, QtGui.QApplication.UnicodeUTF8))
         self.actionDelete_Category.setText(QtGui.QApplication.translate("mainWindow", "Delete Category", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionDelete_Category.setShortcut(QtGui.QApplication.translate("mainWindow", "Ctrl+Shift+D", None, QtGui.QApplication.UnicodeUTF8))
 
 import icons_rc

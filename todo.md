@@ -1,5 +1,3 @@
-> Delete on cat/reminder should trigger delete action via eventFilter
-
 > Reminder popup should be above all active windows if possible?
 
 > Sound alert???
@@ -8,7 +6,10 @@
 
 > pip/deb/windows installer testing
 
-> Google cals with api and social auth
+[Version 2]
+
+> Google cals with api and social auth, (use the reminder from gcal not the event). Use
+python social auth. Think about reccuring reminders
 
 
 ISSUES

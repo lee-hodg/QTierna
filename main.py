@@ -174,15 +174,22 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
         self.actionEdit_Reminder.triggered.emit()
 
     # ###################### Action slots ###################################
-    def addedit_rem_action_triggered(self):
-        """Opens the add or edit reminder dialog. For edit would be same but with edit_reminder_id"""
+    def addedit_rem_action_triggered(self, reminder_id=None):
+        """
+        Opens the add or edit reminder dialog. For edit would be same but with edit_reminder_id
+
+        A non-zero reminder_id is for the 'Reschedule' button click of the notification dlg.
+        For both add/edit reminder actions reminder_id will be None, but for
+        edit we'll get the reminder_id from the row selected in table
+        """
         action = self.sender()
-        logger.debug('Sender is %s' % action.objectName())
-        if action is None or not isinstance(action, QtGui.QAction):
+        reschedule = False
+        if reminder_id is not None:
+            reschedule = True
+        elif action is None or not isinstance(action, QtGui.QAction):
             return None
 
-        reminder_id = None
-        if action.objectName() == 'actionEdit_Reminder':
+        if action and action.objectName() == 'actionEdit_Reminder':
             # Ensure only one row selected, get item for that row
             logger.debug('User wants to edit reminder')
             indices = self.mainTableWidget.selectionModel().selectedRows()
@@ -195,7 +202,7 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
                 QtGui.QMessageBox.warning(self, 'Select rows', 'You must select one row.')
                 return
 
-        dialog = AddEditRemDialog(self.time_zone, edit_reminder_id=reminder_id, parent=self)
+        dialog = AddEditRemDialog(self.time_zone, edit_reminder_id=reminder_id, reschedule=reschedule, parent=self)
         dialog.categories_changed.connect(self.refresh_tree)
         if dialog.exec_():
             # Focus on 'Upcoming' category so we can see new reminder has been added
@@ -637,8 +644,20 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
         self.show()
         dlg = NotificationDialog()
         dlg.notificationTextBrowser.setHtml(htmlcontent)
+        dlg.remLabel.setText(local_due)
         dlg.setWindowTitle(unicode('Due at %s' % local_due))
-        dlg.exec_()
+        # Change std buttons to "Reschedule" and "Mark Complete".
+        # Resched will set complete=False and launch the edit reminder with
+        # time selected. "Mark Complete" does nothing, since we already
+        # marked complete to prevent further popups
+        dlg.notificationButtonBox.button(QtGui.QDialogButtonBox.Ok).setText('Mark Complete')
+        dlg.notificationButtonBox.button(QtGui.QDialogButtonBox.Cancel).setText('Reschedule')
+        if dlg.exec_():
+            logger.debug('User wants to close dlg and keep the reminder as completed')
+        else:
+            # Launch edit reminder
+            logger.debug('User wants to reschedule')
+            self.addedit_rem_action_triggered(reminder_id=reminder_id)
 
         # Refresh table to account for this reminder completion
         self.refresh_table()

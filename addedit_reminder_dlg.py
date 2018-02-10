@@ -14,7 +14,7 @@ class AddEditRemDialog(QtGui.QDialog, addEditRemDialog.Ui_addEditRemDialog):
 
     categories_changed = QtCore.Signal()
 
-    def __init__(self, time_zone, edit_reminder_id=None, parent=None):
+    def __init__(self, time_zone, edit_reminder_id=None, reschedule=False, parent=None):
         '''
         If Adding a reminder, <edit_reminder_id> will be None,
         else if editing it should be a Reminder model instance's id
@@ -26,6 +26,9 @@ class AddEditRemDialog(QtGui.QDialog, addEditRemDialog.Ui_addEditRemDialog):
 
         # So we can display localized datetimes to user
         self.time_zone = time_zone
+
+        # If this edit is in response to 'Reschedule' of Notification Dlg
+        self.reschedule = reschedule
 
         # Preventitive validation:
         self.addEditRemDlgCalendarWidget.setMinimumDate(QtCore.QDate.currentDate())  # No past dates
@@ -81,7 +84,7 @@ class AddEditRemDialog(QtGui.QDialog, addEditRemDialog.Ui_addEditRemDialog):
 
     def _init_widgets(self):
         '''
-        Update the widgets according to self.reminder_dict
+        Init the widgets according to self.reminder_dict
         '''
         # Defaults
         due = dt2str(get_utc_now())
@@ -104,10 +107,19 @@ class AddEditRemDialog(QtGui.QDialog, addEditRemDialog.Ui_addEditRemDialog):
         self.addEditRemDlgTimeEdit.setTime(QtCore.QTime(local_due.time().hour, local_due.time().minute))
         # Set note
         if note:
-            self.addEditRemDlgTextEdit.setText(unicode(note))
+            self.addEditRemDlgTextEdit.document().setPlainText(unicode(note))
         # Set completed
         if complete:
             self.addEditRemDlgCompletecheckBox.setCheckState(QtCore.Qt.Checked)
+
+        # If this edit is a Reschedule
+        if self.reschedule is True:
+            # This is in reaction to 'Reschedule' from notification dlg
+            # Deselect 'complete' and also highlight time edit
+            logger.debug('Reschedule is True so overriding the complete check status')
+            self.addEditRemDlgCompletecheckBox.setCheckState(QtCore.Qt.Unchecked)
+            self.addEditRemDlgTimeEdit.selectAll()
+            self.addEditRemDlgTimeEdit.setFocus()
 
     def _get_reminder_utc_datetime_str(self, date_format='%Y-%m-%d %H:%M'):
         date_ = self.addEditRemDlgCalendarWidget.selectedDate().toString("yyyy-MM-dd")
