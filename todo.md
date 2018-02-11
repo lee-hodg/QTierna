@@ -1,6 +1,7 @@
 > Reminder popup should be above all active windows if possible?
 
 > Prevent multiple instances of app at one time
+Consider siding, I think QSharedMemory doesn't work for Pyside any other ideas?
 
 > pip/deb/windows installer testing
 
