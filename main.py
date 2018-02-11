@@ -3,10 +3,12 @@ __appname__ = "QTierna"
 __module__ = "main"
 
 from PySide import QtCore, QtGui
+from PySide.phonon import Phonon
 from datetime import datetime
 from tzlocal import get_localzone
 from utils import str2bool, bool2str, dt2str, utcstr2local, smart_truncate
 import sys
+import os
 import arrow
 import pytz
 import json
@@ -627,10 +629,22 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
         htmlcontent = '<p>%s</p>' % note
 
         # QApplication.instance().beep()
-        if QtGui.QSound.isAvailable():
-            # Seems I would have to recompile with NAS support, but
-            # what does that mean for python when pyside was pip installed??
-            QtGui.QSound.play("media/alarm_beep.wav")
+        # if QtGui.QSound.isAvailable():
+        #     # Seems I would have to recompile with NAS support, but
+        #     # what does that mean for python when pyside was pip installed??
+        #     QtGui.QSound.play("media/alarm_beep.wav")
+        media = Phonon.MediaObject()
+        audio = Phonon.AudioOutput(Phonon.MusicCategory)
+        Phonon.createPath(media, audio)
+        alarm_file = os.path.join(os.getcwd(), 'media/alarm_beep.wav')
+        f = QtCore.QFile(alarm_file)
+        if f.exists():
+            source = Phonon.MediaSource(alarm_file)
+            if source.type() != -1:              # -1 stands for invalid file
+                media.setCurrentSource(source)
+                media.play()
+        else:
+            logger.debug('Alert media missing: %s' % alarm_file)
 
         # Systray notification
         self.tray_icon.showMessage(

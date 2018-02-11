@@ -1,7 +1,5 @@
 > Reminder popup should be above all active windows if possible?
 
-> Sound alert???
-
 > Prevent multiple instances of app at one time
 
 > pip/deb/windows installer testing
