@@ -99,7 +99,11 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
         # #################### SysTray icon, menu ###########################
         # Init QSystemTrayIcon
         self.tray_icon = QtGui.QSystemTrayIcon(self)
-        self.tray_icon.setIcon(QtGui.QIcon("icons/alarm-clock-white.png"))
+        tray_icon = QtGui.QIcon()
+        tray_icon.addPixmap(QtGui.QPixmap(":/icons/icons/alarm-clock-white.png"),
+                            QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        # self.tray_icon.setIcon(QtGui.QIcon("icons/alarm-clock-white.png"))
+        self.tray_icon.setIcon(tray_icon)
         show_action = QtGui.QAction("Show", self)
         quit_action = QtGui.QAction("Exit", self)
         hide_action = QtGui.QAction("Hide", self)
