@@ -16,6 +16,8 @@ import io
 
 from setup_logging import logger
 from sqlalchemy import func
+# To make pyinstaller work
+from sqlalchemy.ext import baked
 from setup_db import session_scope, db_create_tables, db_drop_all_tables
 from models import Reminder, Category
 
@@ -25,6 +27,15 @@ from pref_dlg import PrefDialog
 from notification_dlg import NotificationDialog
 from about_dlg import AboutDialog
 from addedit_category_dlg import AddEditCatDialog
+
+
+# resource_path is the relative path to the resource file, which changes when built for an executable
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath('.')
+    return os.path.join(base_path, relative_path)
 
 
 class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
@@ -640,7 +651,9 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
         media = Phonon.MediaObject()
         audio = Phonon.AudioOutput(Phonon.MusicCategory)
         Phonon.createPath(media, audio)
-        alarm_file = os.path.join(os.getcwd(), 'media/alarm_beep.wav')
+        # alarm_file = os.path.join(os.getcwd(), 'media/alarm_beep.wav')
+        alarm_file = resource_path('alarm_beep.wav')
+        logger.debug('Trying to open alarm file...%s' % alarm_file)
         f = QtCore.QFile(alarm_file)
         if f.exists():
             source = Phonon.MediaSource(alarm_file)
@@ -767,6 +780,10 @@ def main():
     QtCore.QCoreApplication.setOrganizationDomain("logicon.io")
 
     app = QtGui.QApplication(sys.argv)
+
+	# Debug phonon issue
+    for lppath in app.libraryPaths():
+        logger.debug(lppath)
 
     if not QtGui.QSystemTrayIcon.isSystemTrayAvailable():
         QtGui.QMessageBox.critical(None, "Systray",
