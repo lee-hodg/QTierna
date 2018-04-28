@@ -1,0 +1,25 @@
+
+>pyinstaller  --onefile --add-data "alarm_beep.wav;." main.py
+
+
+WARNING: bool __cdecl Phonon::FactoryPrivate::createBackend(void) phonon backend plugin could not be loaded
+             WARNING: bool __cdecl Phonon::FactoryPrivate::createBackend(void) phonon backend plugin could not be loaded
+             WARNING: bool __cdecl Phonon::FactoryPrivate::createBackend(void) phonon backend plugin could not be loaded
+             WARNING: bool __cdecl Phonon::FactoryPrivate::createBackend(void) phonon backend plugin could not be loaded
+             WARNING: Phonon::createPath: Cannot connect  MediaObject ( no objectName ) to  AudioOutput ( no objectName ).
+                                                              
+         Alert media missing: alarm_beep.wav
+
+
+
+now
+
+
+WARNING: bool __cdecl Phonon::FactoryPrivate::createBackend(void) phonon backend plugin could not be loaded          
+   WARNING: bool __cdecl Phonon::FactoryPrivate::createBackend(void) phonon backend plugin could not be loaded    
+         WARNING: bool __cdecl Phonon::FactoryPrivate::createBackend(void) phonon backend plugin could not be loaded
+             WARNING: bool __cdecl Phonon::FactoryPrivate::createBackend(void) phonon backend plugin could not be loaded 
+            WARNING: Phonon::createPath: Cannot connect  MediaObject ( no objectName ) to  AudioOutput ( no objectName ). 
+          Trying to open alarm file...C:\Users\salami\AppData\Local\Temp\_MEI26~1\alarm_beep.wav                 
+                 WARNING: bool __cdecl Phonon::FactoryPrivate::createBackend(void) phonon backend plugin could not be loaded            
+ WARNING: bool __cdecl Phonon::FactoryPrivate::createBackend(void) phonon backend plugin could not be loaded
