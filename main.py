@@ -640,7 +640,7 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
             return
 
         # Get local datetime for output to user and format note as html
-        local_due = dt2str(utcstr2local(due, self.time_zone, date_format='%Y-%m-%d %H:%M'))
+        local_due = dt2str(utcstr2local(due, self.time_zone, date_format='%Y-%m-%d %H:%M'), date_format='%d %b %I:%M%p')
         htmlcontent = '<p>%s</p>' % note
 
         # QApplication.instance().beep()
@@ -675,7 +675,7 @@ class Main(QtGui.QMainWindow, mainWindow.Ui_mainWindow):
         self.show()
         dlg = NotificationDialog()
         dlg.notificationTextBrowser.setHtml(htmlcontent)
-        dlg.remLabel.setText(local_due)
+        dlg.dtLabel.setText(local_due)
         dlg.setWindowTitle(unicode('Due at %s' % local_due))
         # Change std buttons to "Reschedule" and "Mark Complete".
         # Resched will set complete=False and launch the edit reminder with
