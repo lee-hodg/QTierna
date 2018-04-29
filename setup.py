@@ -15,7 +15,7 @@ setup(
     description="Simple reminders app",
     keywords='PyQt Reminders',
     long_description=LONG_DESCRIPTION,
-    install_requires=['requests', ],
+    install_requires=['arrow', 'PySide', 'python-dateutil', 'pytz', 'six', 'SQLAlchemy', 'tzlocal'],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
