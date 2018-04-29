@@ -22,3 +22,6 @@ celerybeat-schedule
 *.json
 *.jlines
 *.p 
+/deb_dist
+qtierna.egg-info/
+

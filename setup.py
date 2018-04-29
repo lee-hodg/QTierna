@@ -29,5 +29,11 @@ setup(
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Software Development :: Libraries",
     ],
-    packages=['qtierna', ]
+    packages=['qtierna', ],
+    entry_points = {
+        'gui_scripts' : ['qtierna = qtierna.main:main']
+    },
+    data_files = [
+        ('share/applications/', ['qtierna.desktop'])
+    ],
 )

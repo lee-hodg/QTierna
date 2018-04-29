@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=qtierna
+Comment=Reminders app
+Exec=qtierna
+Icon=/usr/share/icons/gnome/48x48/actions/appointment.png
+Categories=Utility;
+# desktop should run this in a terminal application
+Terminal=false
+StartupNotify=true
+StartupWMClass=qtierna
