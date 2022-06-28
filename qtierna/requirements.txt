@@ -1,5 +1,5 @@
 altgraph==0.15
-arrow==0.12.1
+arrow==0.15.1
 backports.functools-lru-cache==1.4
 dis3==0.1.2
 future==0.16.0
