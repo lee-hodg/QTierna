@@ -12,5 +12,5 @@ python-dateutil==2.6.1
 pytz==2017.3
 siding==0.1.0
 six==1.11.0
-SQLAlchemy==1.2.2
+SQLAlchemy==1.3.0
 tzlocal==1.5.1
